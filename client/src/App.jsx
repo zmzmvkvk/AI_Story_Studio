@@ -7,19 +7,20 @@ import Image from "./views/Image";
 import Video from "./views/Video";
 import TTS from "./views/Tts";
 import Setting from "./views/Setting";
+// import Detail from "./views/Detail";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/edit/:id" element={<Edit />} />
-        <Route path="/edit/:id/settings" element={<Setting />} />
-        <Route path="/edit/:id/story" element={<Story />} />
-        <Route path="/edit/:id/image" element={<Image />} />
-        <Route path="/edit/:id/video" element={<Video />} />
-        <Route path="/edit/:id/tts" element={<TTS />} />
-        <Route path="/result" element={<Result />} />
+        <Route path="/detail/:id/settings" element={<Setting />} />
+        <Route path="/detail/:id/story" element={<Story />} />
+        <Route path="/detail/:id/image" element={<Image />} />
+        <Route path="/detail/:id/video" element={<Video />} />
+        <Route path="/detail/:id/tts" element={<TTS />} />
+        <Route path="/detail/:id/edit" element={<Edit />} />
+        <Route path="/detail/:id/" element={<Result />} />
       </Routes>
     </BrowserRouter>
   );
