@@ -1,73 +1,43 @@
 // src/components/UI/ProgressBar.jsx
-import { Link, useLocation, useParams } from "react-router-dom";
-
-const STEPS = [
-  { path: "settings", label: "설정" },
-  { path: "story", label: "스토리" },
-  { path: "image", label: "이미지" },
-  { path: "video", label: "영상" },
-  { path: "tts", label: "TTS" },
-  { path: "edit", label: "영상편집" },
-  { path: "result", label: "결과" },
-];
+// (DetailLayout의 일부로 사용되므로, 그에 맞게 스타일 조정)
+import { Link, useParams } from "react-router-dom";
+import { Bot } from "lucide-react"; // AI Studio 로고용 아이콘 예시
 
 export default function ProgressBar() {
   const { id } = useParams();
-  const location = useLocation();
-
-  // 현재 단계 path 추출
-  const currentStep =
-    STEPS.find((step) => location.pathname.includes(`/${step.path}`))?.path ||
-    "settings";
 
   return (
-    <div className="w-full flex flex-col items-center mb-10 select-none">
-      <div className="mb-2 text-lg text-gray-500">
+    // DetailLayout의 사이드바 상단에 위치한다고 가정하고 스타일링
+    // 기존 w-full, mb-10, mt-12 등은 DetailLayout에서 제어하므로 여기선 제거하거나 단순화
+    <div className="flex flex-col items-center mb-8 select-none pt-2">
+      {" "}
+      {/* 상단 패딩 및 하단 마진 조정 */}
+      <Link
+        to="/"
+        className="
+          flex items-center justify-center
+          font-extrabold tracking-tight text-blue-600 hover:text-blue-700 transition
+          text-2xl sm:text-3xl 
+        "
+        style={{
+          fontFamily: "'Montserrat', 'Poppins', 'Pretendard', sans-serif", // 폰트 스택 변경
+          // textShadow: "0px 1px 8px rgba(44,116,255,0.15)", // 그림자 효과 조정
+        }}
+        title="홈으로 이동"
+      >
+        <Bot size={32} className="mr-2 text-blue-500" />{" "}
+        {/* 로고 아이콘 추가 */}
+        AI STUDIO
+      </Link>
+      <div className="text-xs sm:text-sm mt-2 text-slate-500 font-medium tracking-wide text-center">
         프로젝트 ID:{" "}
         <Link
-          to={`/settings/${id}`}
-          className="text-blue-600 font-mono hover:underline"
+          to={`/detail/${id}/settings`} // 프로젝트 설정으로 바로 이동하도록
+          className="text-blue-600 font-mono hover:underline break-all"
+          title="현재 프로젝트 설정으로 이동"
         >
           {id}
         </Link>
-      </div>
-      <div className="flex items-center gap-2">
-        {STEPS.map((step, idx) => {
-          const isActive = currentStep === step.path;
-          return (
-            <div className="flex items-center" key={step.path}>
-              <Link
-                to={`/${step.path}/${id}`}
-                className={`
-                  flex items-center justify-center
-                  h-14 min-w-[64px] px-4
-                  rounded-full text-base font-bold
-                  transition
-                  ${
-                    isActive
-                      ? "bg-blue-600 text-white shadow-lg"
-                      : "bg-gray-200 text-gray-400 hover:bg-gray-300"
-                  }
-                  ${step.label.length === 4 ? "text-lg" : "text-base"}
-                `}
-                style={{
-                  fontFamily: "inherit",
-                  letterSpacing: "0.02em",
-                  height: "56px",
-                  minWidth: "72px",
-                }}
-              >
-                {step.label}
-              </Link>
-              {/* 마지막 단계가 아니면 하이픈(-) 선 */}
-              {idx < STEPS.length - 1 && (
-                <div className="mx-1 text-2xl text-gray-300 font-bold select-none">
-                  -
-                </div>
-              )}
-            </div>
-          );
-        })}
       </div>
     </div>
   );

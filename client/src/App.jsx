@@ -1,4 +1,5 @@
-import { BrowserRouter, Route, Routes } from "react-router";
+// src/App.jsx
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Home from "./views/Home";
 import Edit from "./views/Edit";
 import Result from "./views/Result";
@@ -7,20 +8,22 @@ import Image from "./views/Image";
 import Video from "./views/Video";
 import TTS from "./views/Tts";
 import Setting from "./views/Setting";
-// import Detail from "./views/Detail";
+import DetailLayout from "./components/Layout/DetailLayout"; // 새로운 레이아웃 컴포넌트 임포트
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/detail/:id/settings" element={<Setting />} />
-        <Route path="/detail/:id/story" element={<Story />} />
-        <Route path="/detail/:id/image" element={<Image />} />
-        <Route path="/detail/:id/video" element={<Video />} />
-        <Route path="/detail/:id/tts" element={<TTS />} />
-        <Route path="/detail/:id/edit" element={<Edit />} />
-        <Route path="/detail/:id/" element={<Result />} />
+        <Route path="/detail/:id" element={<DetailLayout />}>
+          <Route path="settings" element={<Setting />} />
+          <Route path="story" element={<Story />} />
+          <Route path="image" element={<Image />} />
+          <Route path="video" element={<Video />} />
+          <Route path="tts" element={<TTS />} />
+          <Route path="edit" element={<Edit />} />
+          <Route path="result" element={<Result />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
