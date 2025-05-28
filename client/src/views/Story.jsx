@@ -1,8 +1,8 @@
-// src/views/Story.jsx
+// client/src/views/Story.jsx
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { useSettingStore } from "../store/useSettingStore";
-import { useStoryStore } from "../store/useStoryStore";
+import { useSettingStore } from "../store/useSettingStore"; //
+import { useStoryStore } from "../store/useStoryStore"; //
 import {
   Plus,
   Trash2,
@@ -17,40 +17,6 @@ import {
   Save,
 } from "lucide-react";
 
-const parseGeneratedStoryToCuts = (generatedText) => {
-  if (
-    !generatedText ||
-    typeof generatedText.trim() !== "string" ||
-    generatedText.trim().length === 0
-  ) {
-    return [];
-  }
-  const blocks = generatedText
-    .split(/\n(?=(?:컷|Scene)\s*\d+[:\s\n])/g)
-    .map((block) => block.trim())
-    .filter((block) => block.length > 0);
-
-  if (blocks.length === 0) {
-    const paragraphs = generatedText
-      .split(/\n\s*\n/)
-      .map((p) => p.trim())
-      .filter(Boolean);
-    if (paragraphs.length > 1) {
-      return paragraphs.map((p) => ({ text: p }));
-    }
-    return generatedText.trim() ? [{ text: generatedText.trim() }] : [];
-  }
-
-  return blocks
-    .map((block) => {
-      const contentMatch = block.match(/^(?:컷|Scene)\s*\d+[:\s\n]*(.*)/s);
-      const textContent =
-        contentMatch && contentMatch[1] ? contentMatch[1].trim() : block;
-      return { text: textContent };
-    })
-    .filter((cut) => cut.text !== undefined && cut.text.length > 0);
-};
-
 const StoryCutCard = ({ index, storyCut, onTextChange, onRemove }) => {
   const textareaRef = useRef(null);
   useEffect(() => {
@@ -58,7 +24,7 @@ const StoryCutCard = ({ index, storyCut, onTextChange, onRemove }) => {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${Math.max(
         textareaRef.current.scrollHeight,
-        72
+        72 // min-h-[72px]와 동기화
       )}px`;
     }
   }, [storyCut.text]);
@@ -74,8 +40,7 @@ const StoryCutCard = ({ index, storyCut, onTextChange, onRemove }) => {
           className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded-md transition-colors"
           title="컷 삭제"
         >
-          {" "}
-          <Trash2 size={18} />{" "}
+          <Trash2 size={18} />
         </button>
       </div>
       <textarea
@@ -84,8 +49,14 @@ const StoryCutCard = ({ index, storyCut, onTextChange, onRemove }) => {
         value={storyCut.text || ""}
         onChange={(e) => onTextChange(index, e.target.value)}
         placeholder={`컷 ${index + 1}의 스토리를 입력하세요...`}
-        rows="3"
+        rows="3" // rows는 초기 높이에만 영향을 줄 수 있고, JS로 높이 조절
       />
+      {/* 이미지 표시 영역 (선택 사항, Story.jsx 단계에서는 필수는 아님) */}
+      {/* storyCut.imageUrl && (
+        <div className="mt-3 aspect-video bg-slate-100 rounded-lg overflow-hidden border">
+          <img src={storyCut.imageUrl} alt={`컷 ${index + 1} 이미지`} className="w-full h-full object-cover" />
+        </div>
+      )*/}
     </div>
   );
 };
@@ -93,9 +64,8 @@ const StoryCutCard = ({ index, storyCut, onTextChange, onRemove }) => {
 export default function StoryEditor() {
   const { id: projectIdFromUrl, storyId: storyIdFromUrl } = useParams();
 
-  const settingsAiMode = useSettingStore((state) => state.aiMode);
-  const settingsContents = useSettingStore((state) => state.settings.contents);
-  const settingsStory = useSettingStore((state) => state.settings.story);
+  const projectSettings = useSettingStore((state) => state.settings); // 전체 설정 객체
+  const settingsAiMode = useSettingStore((state) => state.aiMode); // AI 모드
   const fetchSettings = useSettingStore((state) => state.fetchSettings);
 
   const storyStore = useStoryStore();
@@ -110,33 +80,99 @@ export default function StoryEditor() {
   const [localStoryPrompt, setLocalStoryPrompt] = useState("");
 
   const [isComponentLoading, setIsComponentLoading] = useState(true);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); // AI 스토리 생성 또는 이미지 업로드 중
   const [statusMessage, setStatusMessage] = useState({ type: "", message: "" });
 
+  // 초기 데이터 로드 (설정 및 기존 스토리)
   useEffect(() => {
     const loadInitialData = async () => {
       setIsComponentLoading(true);
       if (projectIdFromUrl) {
-        await fetchSettings(projectIdFromUrl);
+        await fetchSettings(projectIdFromUrl); // 프로젝트 설정 로드
         const currentStoryId = storyIdFromUrl || projectIdFromUrl;
-        await storyStore.fetchStory(currentStoryId, projectIdFromUrl);
+        await storyStore.fetchStory(currentStoryId, projectIdFromUrl); // 스토리 로드
       } else {
+        // projectIdFromUrl이 없는 경우 (예: 새 프로젝트인데 아직 ID가 없는 초기 상태)
+        // 기본값으로 초기화하거나, 사용자에게 안내
         setLocalCuts([]);
         setLocalProductImageUrl("");
         setLocalStoryPrompt("");
+        // fetchSettings나 fetchStory를 호출하지 않으므로, 스토어의 기본값을 사용할 수 있음
       }
       setIsComponentLoading(false);
     };
     loadInitialData();
   }, [projectIdFromUrl, storyIdFromUrl, fetchSettings, storyStore.fetchStory]);
 
+  // 로드된 스토리를 로컬 상태에 반영
   useEffect(() => {
     if (loadedStory) {
-      setLocalCuts(loadedStory.cutscenes || []);
+      // 각 컷에 ID가 없다면 여기서 부여 (DB 저장 시 ID가 이미 있다면 그것을 사용)
+      setLocalCuts(
+        loadedStory.cutscenes?.map((cut, index) => ({
+          id: cut.id || `cut-${Date.now()}-${index}`, // 고유 ID 보장
+          text: cut.text || "",
+          imageUrl: cut.imageUrl || null, // imageUrl 필드 추가
+        })) || []
+      );
       setLocalProductImageUrl(loadedStory.productImageUrl || "");
       setLocalStoryPrompt(loadedStory.storyPrompt || "");
     }
   }, [loadedStory]);
+
+  const parseGeneratedStoryToCuts = useCallback((generatedText) => {
+    if (
+      !generatedText ||
+      typeof generatedText.trim() !== "string" ||
+      generatedText.trim().length === 0
+    ) {
+      return [];
+    }
+    const blocks = generatedText
+      .split(/\n(?=(?:컷|Scene|Cut)\s*\d+[:\s\n작성].*)/g)
+      .map((block) => block.trim())
+      .filter((block) => block.length > 0);
+
+    if (blocks.length === 0) {
+      const paragraphs = generatedText
+        .split(/\n\s*\n/)
+        .map((p) => p.trim())
+        .filter(Boolean);
+      if (paragraphs.length > 1) {
+        return paragraphs.map((p, index) => ({
+          id: `cut-${Date.now()}-${index}`,
+          text: p,
+          imageUrl: null,
+        }));
+      }
+      return generatedText.trim()
+        ? [
+            {
+              id: `cut-${Date.now()}-0`,
+              text: generatedText.trim(),
+              imageUrl: null,
+            },
+          ]
+        : [];
+    }
+
+    return blocks
+      .map((block, index) => {
+        const contentMatch = block.match(
+          /^(?:컷|Scene|Cut)\s*\d+[:\s\n작성]*(.*)/s
+        );
+        const textContent =
+          contentMatch && contentMatch[1]
+            ? contentMatch[1].trim()
+            : block.replace(/^(?:컷|Scene|Cut)\s*\d+[:\s\n작성]*/, "").trim();
+        return {
+          id: `cut-${Date.now()}-${index}`,
+          text: textContent,
+          imageUrl: null,
+        };
+      })
+      .filter((cut) => cut.text !== undefined && cut.text.length > 0);
+  }, []);
 
   const handleStoryCutChange = useCallback((index, newText) => {
     setLocalCuts((prevCuts) =>
@@ -145,7 +181,10 @@ export default function StoryEditor() {
   }, []);
 
   const handleAddStoryCut = useCallback(() => {
-    setLocalCuts((prevCuts) => [...prevCuts, { text: "" }]);
+    setLocalCuts((prevCuts) => [
+      ...prevCuts,
+      { id: `cut-${Date.now()}-${prevCuts.length}`, text: "", imageUrl: null },
+    ]);
   }, []);
 
   const handleRemoveStoryCut = useCallback((indexToRemove) => {
@@ -169,23 +208,19 @@ export default function StoryEditor() {
       message: "AI가 스토리를 생성 중입니다...",
     });
     try {
-      // 백엔드 API 호출
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_API_BASE_URL || "http://localhost:3001/api"
-        }/generate-ai-story`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            storyPrompt: localStoryPrompt,
-            productImageUrl: localProductImageUrl,
-            projectSettings: projectSettings, // useSettingStore에서 가져온 전체 설정 객체 전달
-          }),
-        }
-      );
+      const apiBaseUrl =
+        import.meta.env.VITE_API_BASE_URL || "http://localhost:3001/api";
+      const response = await fetch(`${apiBaseUrl}/generate-ai-story`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          storyPrompt: localStoryPrompt,
+          productImageUrl: localProductImageUrl,
+          projectSettings: projectSettings, // 전체 설정 객체 전달
+        }),
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -199,15 +234,14 @@ export default function StoryEditor() {
       const data = await response.json();
       const generatedText = data.story;
 
-      // 이제 parseGeneratedStoryToCuts는 안정적인 참조이므로 의존성 배열에서 제거하거나 그대로 둬도 됨
-      const parsedCuts = parseGeneratedStoryToCuts(generatedText); // 이 함수는 이미 Story.jsx에 있음
+      const parsedCuts = parseGeneratedStoryToCuts(generatedText);
       setLocalCuts(parsedCuts);
       setStatusMessage({
         type: "success",
         message: "AI 스토리가 성공적으로 생성되었습니다!",
       });
     } catch (error) {
-      console.error("AI 스토리 생성 실패:", error); // 콘솔에 에러 출력 변경
+      console.error("AI 스토리 생성 실패:", error);
       setStatusMessage({
         type: "error",
         message: `AI 스토리 생성에 실패했습니다: ${error.message}`,
@@ -216,38 +250,49 @@ export default function StoryEditor() {
       setIsProcessing(false);
       setTimeout(() => setStatusMessage({ type: "", message: "" }), 3000);
     }
-    // 의존성 배열에 projectSettings 추가
   }, [
     localStoryPrompt,
     localProductImageUrl,
     projectSettings,
     parseGeneratedStoryToCuts,
-  ]); // setLocalCuts, setStatusMessage, setIsProcessing 등 상태 변경 함수도 필요시 추가
+    // setLocalCuts, setIsProcessing, setStatusMessage // setState 함수는 일반적으로 의존성 배열에 불필요
+  ]);
 
   const handleProductImageUpload = useCallback(async (event) => {
     const file = event.target.files[0];
     if (!file) return;
-    setIsProcessing(true);
+    setIsProcessing(true); // UI 로딩 표시
     setStatusMessage({ type: "info", message: "이미지 업로드 중..." });
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      const mockImageUrl = URL.createObjectURL(file);
-      setLocalProductImageUrl(mockImageUrl);
-      setStatusMessage({
-        type: "success",
-        message: "상품 이미지가 업로드되었습니다.",
-      });
-    } catch (error) {
-      console.log(error);
 
-      setStatusMessage({
-        type: "error",
-        message: "이미지 업로드에 실패했습니다.",
-      });
-    } finally {
-      setIsProcessing(false);
-      setTimeout(() => setStatusMessage({ type: "", message: "" }), 3000);
-    }
+    // FormData를 사용하여 파일 업로드 (만약 직접 스토리지에 업로드한다면)
+    // const formData = new FormData();
+    // formData.append('productImage', file);
+    // try {
+    //   // 예시: await axios.post('/api/upload-product-image', formData);
+    //   // 지금은 임시 URL 사용
+    //   await new Promise(resolve => setTimeout(resolve, 1000)); // 시뮬레이션
+    //   const mockImageUrl = URL.createObjectURL(file);
+    //   setLocalProductImageUrl(mockImageUrl);
+    //   setStatusMessage({ type: "success", message: "상품 이미지가 업로드되었습니다." });
+    // } catch (error) {
+    //   console.error("상품 이미지 업로드 실패:", error);
+    //   setStatusMessage({ type: "error", message: "이미지 업로드에 실패했습니다." });
+    // } finally {
+    //   setIsProcessing(false);
+    //   setTimeout(() => setStatusMessage({ type: "", message: "" }), 3000);
+    // }
+
+    // 현재는 로컬 미리보기만 처리하고, 실제 업로드는 저장 시점에 URL만 저장
+    // 또는 이 단계에서 Firebase Storage 등에 업로드하고 URL을 받아올 수 있습니다.
+    // 여기서는 간단히 로컬 URL만 사용합니다.
+    const mockImageUrl = URL.createObjectURL(file);
+    setLocalProductImageUrl(mockImageUrl); // `saveStoryData` 시 이 URL이 저장됨
+    setIsProcessing(false);
+    setStatusMessage({
+      type: "success",
+      message: "상품 이미지가 선택되었습니다 (저장 시 반영).",
+    });
+    setTimeout(() => setStatusMessage({ type: "", message: "" }), 3000);
   }, []);
 
   const handleSaveStory = useCallback(async () => {
@@ -262,21 +307,31 @@ export default function StoryEditor() {
     }
     setIsProcessing(true);
     setStatusMessage({ type: "info", message: "스토리 저장 중..." });
+
+    // localCuts의 각 컷이 {id, text, imageUrl} 형태를 갖도록 보장
+    const cutsToSave = localCuts.map((cut) => ({
+      id: cut.id || `temp-id-${Math.random().toString(36).substr(2, 9)}`, // ID가 없다면 임시 ID라도 부여
+      text: cut.text || "",
+      imageUrl: cut.imageUrl || null, // imageUrl 필드가 없다면 null로 초기화
+    }));
+
     const storyPayload = {
       id: currentStoryId,
       projectId: projectIdFromUrl,
-      cutscenes: localCuts,
+      cutscenes: cutsToSave, // 업데이트된 컷 (AI 생성 컷 포함)
       productImageUrl: localProductImageUrl,
       storyPrompt: localStoryPrompt,
-      aiMode: settingsAiMode,
+      aiMode: settingsAiMode, // 저장 시점의 AI 모드
     };
+
     try {
-      await storyStore.saveStoryData(storyPayload);
+      await storyStore.saveStoryData(storyPayload); //
       setStatusMessage({
         type: "success",
         message: "스토리가 성공적으로 저장되었습니다!",
       });
     } catch (error) {
+      console.error("스토리 저장 실패:", error);
       setStatusMessage({
         type: "error",
         message: `스토리 저장에 실패했습니다: ${error.message}`,
@@ -292,7 +347,7 @@ export default function StoryEditor() {
     localProductImageUrl,
     localStoryPrompt,
     settingsAiMode,
-    storyStore.saveStoryData,
+    storyStore.saveStoryData, // storyStore의 액션이므로 의존성 추가
   ]);
 
   if (isComponentLoading || storyLoading) {
@@ -305,11 +360,13 @@ export default function StoryEditor() {
   }
 
   if (storyError && !loadedStory) {
+    // 로드된 스토리가 아예 없을 때만 심각한 에러로 간주
     return (
       <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] text-red-600">
         <AlertCircle size={48} />
         <span className="ml-3 text-xl mt-4">
-          스토리 로드 실패: {storyError}
+          스토리 로드 실패:{" "}
+          {typeof storyError === "string" ? storyError : storyError.message}
         </span>
         <p className="text-sm text-slate-500 mt-2">
           새로고침하거나 관리자에게 문의하세요.
@@ -317,9 +374,8 @@ export default function StoryEditor() {
       </div>
     );
   }
-
+  // 렌더링 부분 (이전 답변과 거의 동일, projectSettings 사용 부분 확인)
   return (
-    // ... (이하 JSX 렌더링 부분은 이전과 동일)
     <div className="max-w-5xl mx-auto py-8 px-4 sm:px-6 lg:px-8 font-sans">
       <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 mb-8 text-center">
         스토리 편집{" "}
@@ -367,29 +423,27 @@ export default function StoryEditor() {
       {settingsAiMode && (
         <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg mb-10 border border-slate-200">
           <div className="flex items-center mb-6">
-            {" "}
-            <Bot size={28} className="text-purple-500 mr-3" />{" "}
+            <Bot size={28} className="text-purple-500 mr-3" />
             <h2 className="text-xl sm:text-2xl font-semibold text-slate-700">
               AI 스토리 생성 옵션
-            </h2>{" "}
+            </h2>
           </div>
           <p className="text-slate-600 text-sm mb-6">
-            {" "}
             스토리 프롬프트와 상품 이미지를 입력하면, AI가 프로젝트 설정
-            (플랫폼: {settingsContents.platform}, 유형: {settingsContents.type},
-            언어: {settingsStory.language}, 캐릭터:{" "}
-            {settingsStory.mainCharacter || "미지정"})을 바탕으로 스토리를
-            생성해줍니다.{" "}
+            (플랫폼: {projectSettings.contents.platform}, {/* */}
+            유형: {projectSettings.contents.type}, {/* */}
+            언어: {projectSettings.story.language}, {/* */}
+            캐릭터: {projectSettings.story.mainCharacter || "미지정"})을 {/* */}
+            바탕으로 스토리를 생성해줍니다.
           </p>
           <div className="space-y-6">
             <div>
-              {" "}
               <label
                 htmlFor="story-prompt"
                 className="block text-sm font-medium text-slate-700 mb-1.5"
               >
                 스토리 프롬프트
-              </label>{" "}
+              </label>
               <textarea
                 id="story-prompt"
                 className="w-full p-3 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm min-h-[100px]"
@@ -397,18 +451,16 @@ export default function StoryEditor() {
                 value={localStoryPrompt}
                 onChange={(e) => setLocalStoryPrompt(e.target.value)}
                 disabled={isProcessing}
-              />{" "}
+              />
             </div>
             <div>
-              {" "}
               <label
                 htmlFor="product-image-upload"
                 className="block text-sm font-medium text-slate-700 mb-1.5"
               >
                 상품/참고 이미지 (선택 사항)
-              </label>{" "}
+              </label>
               <div className="flex flex-col sm:flex-row items-center gap-4">
-                {" "}
                 <input
                   type="file"
                   id="product-image-upload"
@@ -416,7 +468,7 @@ export default function StoryEditor() {
                   className="hidden"
                   onChange={handleProductImageUpload}
                   disabled={isProcessing}
-                />{" "}
+                />
                 <button
                   type="button"
                   onClick={() =>
@@ -425,22 +477,24 @@ export default function StoryEditor() {
                   disabled={isProcessing}
                   className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:opacity-60"
                 >
-                  {" "}
                   <UploadCloud size={18} className="mr-2" />
                   이미지 선택
-                </button>{" "}
+                </button>
                 {localProductImageUrl && (
                   <div className="flex items-center space-x-2 bg-slate-50 p-2 rounded-md border border-slate-200 text-xs text-slate-600">
-                    {" "}
                     <img
                       src={localProductImageUrl}
                       alt="Uploaded Product"
                       className="w-12 h-12 object-cover rounded border"
-                    />{" "}
-                    <span>이미지 준비됨</span>{" "}
+                    />
+                    <span>
+                      {localProductImageUrl.startsWith("blob:")
+                        ? "이미지 준비됨 (미리보기)"
+                        : "이미지 준비됨"}
+                    </span>
                   </div>
-                )}{" "}
-              </div>{" "}
+                )}
+              </div>
             </div>
           </div>
           <button
@@ -452,50 +506,47 @@ export default function StoryEditor() {
                 : "bg-purple-600 hover:bg-purple-700 shadow-lg hover:shadow-xl focus:ring-purple-500"
             }`}
           >
-            {" "}
-            {isProcessing ? (
+            {isProcessing && !storyLoading ? ( // AI 생성 중일 때 (스토리 로딩 중이 아닐 때)
               <Loader2 size={22} className="animate-spin mr-2" />
             ) : (
               <Wand2 size={20} className="mr-2" />
-            )}{" "}
-            {isProcessing ? "스토리 생성 중..." : "AI 스토리 생성 / 수정"}
+            )}
+            {isProcessing && !storyLoading
+              ? "스토리 생성 중..."
+              : "AI 스토리 생성 / 수정"}
           </button>
         </div>
       )}
 
       {!settingsAiMode && (
         <div className="bg-green-50 p-4 rounded-xl flex items-start text-green-800 mb-8 border border-green-200 shadow">
-          {" "}
           <AlertCircle
             size={22}
             className="text-green-600 mr-3 mt-0.5 flex-shrink-0"
-          />{" "}
+          />
           <div>
-            {" "}
-            <h3 className="font-semibold text-base">수동 모드</h3>{" "}
+            <h3 className="font-semibold text-base">수동 모드</h3>
             <p className="text-sm">
               스토리를 컷 단위로 직접 작성하고 관리합니다.
-            </p>{" "}
-          </div>{" "}
+            </p>
+          </div>
         </div>
       )}
 
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          {" "}
           <h2 className="text-xl sm:text-2xl font-semibold text-slate-700 flex items-center">
-            {" "}
             <BookOpen size={26} className="text-green-500 mr-2.5" /> 스토리 컷
-            목록{" "}
-          </h2>{" "}
+            목록
+          </h2>
           <span className="text-sm text-slate-500 font-medium bg-slate-100 px-2.5 py-1 rounded-md">
             총 {localCuts.length} 컷
-          </span>{" "}
+          </span>
         </div>
         {localCuts.length > 0 ? (
           localCuts.map((storyCut, index) => (
             <StoryCutCard
-              key={index}
+              key={storyCut.id || index} // key는 고유 ID 사용
               index={index}
               storyCut={storyCut}
               onTextChange={handleStoryCutChange}
@@ -504,18 +555,17 @@ export default function StoryEditor() {
           ))
         ) : (
           <div className="text-center py-10 px-6 bg-white rounded-xl shadow-lg border border-slate-200">
-            {" "}
-            <BookOpen size={48} className="mx-auto text-slate-300 mb-4" />{" "}
+            <BookOpen size={48} className="mx-auto text-slate-300 mb-4" />
             <p className="text-lg text-slate-500 mb-2">
               {settingsAiMode
                 ? "AI가 생성한 스토리가 여기에 표시됩니다."
                 : "아직 추가된 컷이 없습니다."}
-            </p>{" "}
+            </p>
             <p className="text-sm text-slate-400">
               {settingsAiMode
                 ? "위의 'AI 스토리 생성' 버튼을 클릭하거나, 직접 컷을 추가해보세요."
                 : "'새로운 컷 추가' 버튼을 클릭하여 스토리를 만들어보세요."}
-            </p>{" "}
+            </p>
           </div>
         )}
       </div>
@@ -525,31 +575,34 @@ export default function StoryEditor() {
         disabled={isProcessing}
         className="w-full flex items-center justify-center py-3.5 px-6 mt-8 border-2 border-dashed border-slate-300 rounded-lg text-slate-600 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-60"
       >
-        {" "}
         <Plus size={20} className="mr-2" />
         <span className="text-base sm:text-lg font-semibold">
           새로운 컷 추가
         </span>
       </button>
       <div className="mt-12 flex flex-col items-center">
-        {" "}
         <button
           onClick={handleSaveStory}
-          disabled={isProcessing || localCuts.length === 0}
+          disabled={isProcessing || storyLoading || localCuts.length === 0} // 스토리 로딩 중에도 비활성화
           className={`px-10 py-3.5 rounded-lg text-lg font-semibold text-white flex items-center justify-center transition-all duration-300 ease-in-out focus:outline-none focus:ring-4 ${
-            isProcessing || localCuts.length === 0
+            isProcessing || storyLoading || localCuts.length === 0
               ? "bg-blue-400 cursor-not-allowed focus:ring-blue-300"
               : "bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl focus:ring-blue-500"
           }`}
         >
-          {" "}
-          {isProcessing && storyLoading ? (
+          {isProcessing && !storyLoading ? ( // AI 생성/저장 중 (스토리 로딩 중 아님)
+            <Loader2 size={22} className="animate-spin mr-2.5" />
+          ) : storyLoading ? ( // 스토리 로딩 중
             <Loader2 size={22} className="animate-spin mr-2.5" />
           ) : (
             <Save size={20} className="mr-2.5" />
-          )}{" "}
-          {isProcessing && storyLoading ? "저장 중..." : "스토리 저장"}{" "}
-        </button>{" "}
+          )}
+          {isProcessing && !storyLoading
+            ? "처리 중..."
+            : storyLoading
+            ? "로딩 중..."
+            : "스토리 저장"}
+        </button>
       </div>
     </div>
   );

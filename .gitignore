@@ -9,7 +9,6 @@ Thumbs.db
 # Windows thumbnail cache files
 ehthumbs.db
 ehthumbs_vista.db
-
 # editor directories and files
 .vscode/*
 !.vscode/settings.json
@@ -82,6 +81,7 @@ dist/
 
 # Server folder specific
 server/node_modules/
+server/firebase/serviceAccountKey.json
 server/.env
 server/*.log
 
