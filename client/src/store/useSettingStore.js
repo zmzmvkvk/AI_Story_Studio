@@ -1,10 +1,8 @@
 // client/src/store/useSettingStore.js
 import { create } from "zustand";
-import { db } from "../firebase/firebase"; // Firestore 직접 접근 시 사용
+import { db } from "../firebase/firebase";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 
-// 플랫폼별 기본 콘텐츠 유형 및 스토리 길이/컷 수 가이드라인
-// 이 값들은 GPT 프롬프트 생성 시 참고용으로 사용됩니다.
 const platformGuide = {
   youtube: { type: "shorts", lengthDesc: "60초 미만", defaultCuts: 25 },
   instagram: { type: "reels", lengthDesc: "60초 이상", defaultCuts: 35 },
@@ -15,41 +13,36 @@ export const useSettingStore = create((set, get) => ({
   aiMode: true,
   settings: {
     contents: {
-      platform: "youtube", // 'youtube', 'instagram', 'tiktok'
-      type: platformGuide.youtube.type, // 플랫폼에 따라 자동 설정
-      // 아래 값들은 GPT 프롬프트 생성 시 참고용, ContentsSettings.jsx에서 업데이트
+      platform: "youtube",
+      type: platformGuide.youtube.type,
       platformLengthDescription: platformGuide.youtube.lengthDesc,
       platformDefaultCuts: platformGuide.youtube.defaultCuts,
     },
     story: {
       language: "ko",
       mainCharacter: {
-        // 객체로 변경
-        id: "default", // 캐릭터 고유 ID 또는 이름
+        id: "default",
         name: "기본 (AI 자유 선택)",
-        imageUrl: "/placeholder-character.png", // 기본 캐릭터 이미지 URL (public 폴더에 위치)
+        imageUrl: "/placeholder-character.png",
       },
-      storyDirection: "advertisement", // 'advertisement', 'comedy', 'omnibus', 'drama', 'thriller', 'educational', 'daily_life'
+      storyDirection: "advertisement",
     },
     image: {
-      stylePreset: "LEONARDO", // Leonardo AI의 Photography, Anime 등 preset style. API 문서 확인 필요
-      customModelId: null, // 사용자가 학습시킨 커스텀 모델 ID
-      aspectRatio: "9:16", // '9:16', '16:9', '1:1', '4:3', '3:4' 등
-      width: 768, // aspectRatio에 따라 자동 또는 수동 설정
-      height: 1344, // aspectRatio에 따라 자동 또는 수동 설정
-      guidanceScale: 7, // 이미지 생성 시 프롬프트 충실도 (Leonardo AI: 1-20)
-      // Leonardo AI 이미지 생성 옵션 추가 (예시)
-      num_images: 1, // 생성할 이미지 수
-      alchemy: true, // Leonardo Alchemy 사용 여부 (v1 기준, v2는 다를 수 있음)
-      photoReal: false, // (Alchemy v2 또는 별도 옵션) 실사 이미지 강화
-      promptMagic: false, // (Alchemy v2 또는 별도 옵션) 프롬프트 자동 개선
-      negative_prompt: "", // 네거티브 프롬프트
-      // controlNet: { enabled: false, type: 'POSE', strength: 0.5, controlImageId: null }, // 고급 기능
+      stylePreset: "LEONARDO",
+      customModelId: null,
+      aspectRatio: "9:16",
+      width: 768,
+      height: 1344,
+      guidanceScale: 7,
+      num_images: 1,
+      alchemy: true,
+      photoReal: false,
+      promptMagic: false,
+      negative_prompt: "",
     },
     video: {
-      resolution: "1080p", // 최종 비디오 출력 해상도 (예: '1080x1920')
+      resolution: "1080p",
       fps: 30,
-      // motionStrength: 5, // Leonardo AI Image-to-Motion 옵션 (1-10)
     },
     tts: {
       speaker: "female",
@@ -62,9 +55,6 @@ export const useSettingStore = create((set, get) => ({
 
   setAiMode: (v) => set({ aiMode: v }),
 
-  // 단일 설정 항목 업데이트 (계층적 구조 지원)
-  // 예: setSetting('story', 'mainCharacter', newCharacterObject)
-  // 예: setSetting('image', 'guidanceScale', 10)
   setSetting: (category, key, value) =>
     set((state) => {
       const newSettings = {
@@ -75,31 +65,34 @@ export const useSettingStore = create((set, get) => ({
         },
       };
 
-      // 플랫폼 변경 시 콘텐츠 유형 및 가이드라인 자동 업데이트
       if (category === "contents" && key === "platform") {
         const guide = platformGuide[value] || platformGuide.youtube;
         newSettings.contents.type = guide.type;
         newSettings.contents.platformLengthDescription = guide.lengthDesc;
         newSettings.contents.platformDefaultCuts = guide.defaultCuts;
       }
-
-      // 화면 비율 변경 시 width, height 자동 업데이트 (aspectRatioOptions에서 가져와야 함)
-      // 이 로직은 ImageSettings.jsx 내에서 handleAspectRatioSelect 시 직접 onSettingChange를 여러 번 호출하는 것으로 대체됨
-
       return { settings: newSettings };
     }),
 
-  // 전체 settings 객체를 한 번에 업데이트 (fetchSettings 등에서 사용)
   setSettings: (newSettings) =>
     set((state) => ({
-      settings: { ...state.settings, ...newSettings },
+      // 전체 설정 객체 업데이트용
+      settings: {
+        ...state.settings, // 기존 스토어의 기본 구조를 유지
+        contents: {
+          ...state.settings.contents,
+          ...(newSettings.contents || {}),
+        },
+        story: { ...state.settings.story, ...(newSettings.story || {}) },
+        image: { ...state.settings.image, ...(newSettings.image || {}) },
+        video: { ...state.settings.video, ...(newSettings.video || {}) },
+        tts: { ...state.settings.tts, ...(newSettings.tts || {}) },
+      },
     })),
 
   fetchSettings: async (projectId) => {
     if (!projectId) {
-      console.warn("fetchSettings: projectId가 제공되지 않았습니다.");
-      // projectId가 없으면 기본값으로 두거나, 초기화된 상태를 유지
-      // 또는 새로운 프로젝트일 경우 기본값을 Firestore에 저장하는 로직 추가 가능
+      set({ loading: false, error: "projectId가 제공되지 않았습니다." });
       return;
     }
     set({ loading: true, error: null });
@@ -107,11 +100,9 @@ export const useSettingStore = create((set, get) => ({
       const snap = await getDoc(doc(db, "settings", projectId));
       if (snap.exists()) {
         const data = snap.data();
-        // Firestore에서 가져온 설정으로 스토어 상태 업데이트
-        // 중첩된 객체까지 깊은 병합이 필요할 수 있으나, 여기서는 최상위 aiMode와 settings만 처리
         const fetchedSettings = data.settings || {};
 
-        // 플랫폼 변경에 따른 가이드라인 정보도 함께 업데이트
+        // Firestore에서 가져온 platform 값 기준으로 가이드라인 정보 설정
         const platform =
           fetchedSettings.contents?.platform ||
           get().settings.contents.platform;
@@ -120,13 +111,11 @@ export const useSettingStore = create((set, get) => ({
         set({
           aiMode: data.aiMode !== undefined ? data.aiMode : get().aiMode,
           settings: {
-            ...get().settings, // 기본 틀 유지
-            ...fetchedSettings, // DB에서 가져온 설정으로 덮어쓰기
+            // 기존 스토어 구조를 유지하면서 값을 병합
             contents: {
-              // contents는 가이드라인 정보 때문에 특별 처리
-              ...get().settings.contents,
-              ...(fetchedSettings.contents || {}),
-              type: guide.type,
+              ...get().settings.contents, // 기본값
+              ...(fetchedSettings.contents || {}), // DB 값
+              type: guide.type, // 파생값 업데이트
               platformLengthDescription: guide.lengthDesc,
               platformDefaultCuts: guide.defaultCuts,
             },
@@ -146,14 +135,12 @@ export const useSettingStore = create((set, get) => ({
           },
         });
       } else {
-        // Firestore에 해당 projectId의 설정이 없는 경우 (새 프로젝트)
-        // 현재 스토어의 기본값을 Firestore에 저장할 수도 있음 (선택적)
+        // 새 프로젝트일 경우, 현재 스토어의 기본값을 사용할 수 있도록 상태 변경 없음
+        // 또는 이 시점에서 기본 설정을 Firestore에 저장할 수도 있습니다.
+        // await get().saveSettings(projectId); // 예: 새 프로젝트 시 기본값 저장
         console.log(
           `Firestore에 projectId '${projectId}'에 대한 설정이 없습니다. 기본값을 사용합니다.`
         );
-        // 이 경우, 현재 스토어의 초기 기본값이 사용됨.
-        // 필요하다면 여기서 saveSettings를 호출하여 기본값을 DB에 쓸 수 있음.
-        // await get().saveSettings(projectId); // 예시: 새 프로젝트 시 기본값 저장
       }
     } catch (err) {
       console.error("Error fetching settings:", err);
@@ -165,28 +152,33 @@ export const useSettingStore = create((set, get) => ({
 
   saveSettings: async (projectId) => {
     if (!projectId) {
-      console.error("saveSettings: projectId가 제공되지 않았습니다.");
       set({ saving: false, error: "저장할 프로젝트 ID가 없습니다." });
       return Promise.reject(new Error("저장할 프로젝트 ID가 없습니다."));
     }
     set({ saving: true, error: null });
     try {
       const { aiMode, settings } = get();
-      // settings 객체에서 내부적으로 관리되는 platformLengthDescription, platformDefaultCuts 제외하고 저장 가능
-      const settingsToSave = { ...settings };
-      // delete settingsToSave.contents.platformLengthDescription; // 저장 불필요
-      // delete settingsToSave.contents.platformDefaultCuts;   // 저장 불필요
+      // 파생 상태(platformLengthDescription, platformDefaultCuts)는 저장할 필요 없음
+      const {
+        platformLengthDescription,
+        platformDefaultCuts,
+        ...contentsToSave
+      } = settings.contents;
+      const settingsToPersist = {
+        ...settings,
+        contents: contentsToSave,
+      };
 
       await setDoc(
         doc(db, "settings", projectId),
         {
           aiMode,
-          settings: settingsToSave, // 순수 설정값만 저장
-          updatedAt: serverTimestamp(), // 업데이트 타임스탬프
+          settings: settingsToPersist,
+          updatedAt: serverTimestamp(),
         },
-        { merge: true } // 기존 필드는 유지하고 변경된 필드만 업데이트 또는 추가
+        { merge: true }
       );
-      set({ saving: false, error: null }); // 성공 시 에러 null로 초기화
+      set({ saving: false });
       return Promise.resolve();
     } catch (err) {
       console.error("Error saving settings:", err);

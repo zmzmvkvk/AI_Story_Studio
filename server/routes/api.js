@@ -4,8 +4,7 @@ import { generateStoryWithGPT } from "./services/gptService.js";
 import {
   requestImageGeneration,
   pollGenerationResult,
-  fetchUserModels, // fetchUserModels도 사용한다면 export 되어 있어야 함
-  // improvePromptAPI, // 이 줄을 제거 (또는 주석 처리)
+  fetchUserModels,
 } from "./services/leonardoService.js";
 
 const router = express.Router();
