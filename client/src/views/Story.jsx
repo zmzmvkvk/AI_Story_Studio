@@ -169,36 +169,60 @@ export default function StoryEditor() {
       message: "AI가 스토리를 생성 중입니다...",
     });
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      const platform = settingsContents.platform;
-      const type = settingsContents.type;
-      const language = settingsStory.language;
-      const mainCharacter = settingsStory.mainCharacter;
+      // 백엔드 API 호출
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_API_BASE_URL || "http://localhost:3001/api"
+        }/generate-ai-story`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            storyPrompt: localStoryPrompt,
+            productImageUrl: localProductImageUrl,
+            projectSettings: projectSettings, // useSettingStore에서 가져온 전체 설정 객체 전달
+          }),
+        }
+      );
 
-      const generatedText = `컷 1: ${
-        mainCharacter || "주인공"
-      } 등장! "${localStoryPrompt}" 기반의 멋진 ${type} 시작! (플랫폼: ${platform}, 언어: ${language})\n\n컷 2: ${
-        localProductImageUrl ? "상품 이미지와 함께" : ""
-      } 흥미진진한 전개!\n\n컷 3: 클라이맥스! 모든 것이 밝혀진다!\n\n컷 4: 다음을 기대하게 만드는 마무리!`;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.details ||
+            errorData.error ||
+            `AI 스토리 생성 API 오류: ${response.status}`
+        );
+      }
+
+      const data = await response.json();
+      const generatedText = data.story;
 
       // 이제 parseGeneratedStoryToCuts는 안정적인 참조이므로 의존성 배열에서 제거하거나 그대로 둬도 됨
-      const parsedCuts = parseGeneratedStoryToCuts(generatedText);
+      const parsedCuts = parseGeneratedStoryToCuts(generatedText); // 이 함수는 이미 Story.jsx에 있음
       setLocalCuts(parsedCuts);
       setStatusMessage({
         type: "success",
         message: "AI 스토리가 성공적으로 생성되었습니다!",
       });
     } catch (error) {
-      console.log(error);
+      console.error("AI 스토리 생성 실패:", error); // 콘솔에 에러 출력 변경
       setStatusMessage({
         type: "error",
-        message: "AI 스토리 생성에 실패했습니다.",
+        message: `AI 스토리 생성에 실패했습니다: ${error.message}`,
       });
     } finally {
       setIsProcessing(false);
       setTimeout(() => setStatusMessage({ type: "", message: "" }), 3000);
     }
-  }, [localStoryPrompt, localProductImageUrl, settingsContents, settingsStory]);
+    // 의존성 배열에 projectSettings 추가
+  }, [
+    localStoryPrompt,
+    localProductImageUrl,
+    projectSettings,
+    parseGeneratedStoryToCuts,
+  ]); // setLocalCuts, setStatusMessage, setIsProcessing 등 상태 변경 함수도 필요시 추가
 
   const handleProductImageUpload = useCallback(async (event) => {
     const file = event.target.files[0];

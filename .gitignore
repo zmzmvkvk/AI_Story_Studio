@@ -1,0 +1,119 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbs.db
+Thumbs.db
+
+# Windows thumbnail cache files
+ehthumbs.db
+ehthumbs_vista.db
+
+# editor directories and files
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Rider
+#.idea.rider*
+
+# Environment variables
+.env
+.env*.local
+.env.*.local
+
+# Log files
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build output
+/dist
+/out
+/build
+/public/build
+
+# Next.js build output
+.next/
+out/
+
+# Remix build files
+.cache/
+build/
+public/build/
+app/build/
+
+# Nuxt.js build output
+.nuxt
+dist
+
+# SvelteKit build output
+.svelte-kit
+
+# Gatsby files
+.cache/
+# Comment in the public line in if your project uses Gatsby and not Next.js
+# https://nextjs.org/docs/api-reference/next.config.js/exportPathMap
+# public
+
+# Docusaurus cache and generated files
+.docusaurus
+
+# VuePress cache and generated files
+.vuepress/dist
+.vuepress/.temp
+
+# Parcel cache files and generated files
+.parcel-cache
+dist/
+
+# Server folder specific
+server/node_modules/
+server/.env
+server/*.log
+
+# Client folder specific (Vite)
+client/node_modules/
+client/dist/
+client/.env
+client/.env.*
+client/coverage/
+client/*.log
+client/public/vite.svg # 만약 Vite 기본 아이콘을 사용하지 않는다면
+
+# Temporary files
+*.tmp
+*.temp
+*.~
+
+# Local user settings
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Yarn Integrity file
+.yarnclean
+
+# IDE Integration files
+.project
+.classpath
+.cproject
+.settings/
+.buildpath
+
+# Coverage directory
+coverage
