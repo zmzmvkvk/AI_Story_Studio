@@ -2,7 +2,7 @@
 import React from "react";
 import { Volume2 } from "lucide-react";
 
-export default function TtsSettings({ tts, aiMode, onSettingChange }) {
+export default function TtsSettings({ tts, onSettingChange }) {
   return (
     <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
       <div className="flex items-center mb-6">
@@ -19,14 +19,10 @@ export default function TtsSettings({ tts, aiMode, onSettingChange }) {
           </label>
           <select
             id="tts-speaker"
-            className={`mt-1 block w-full pl-3 pr-10 py-2.5 text-base border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg shadow-sm ${
-              aiMode
-                ? "bg-slate-100 text-slate-500 cursor-not-allowed"
-                : "bg-white"
-            }`}
+            className={`mt-1 block w-full pl-3 pr-10 py-2.5 text-base border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg shadow-sm ${"bg-white"}`}
             value={tts.speaker}
             onChange={(e) => onSettingChange("speaker", e.target.value)}
-            disabled={aiMode}
+            // disabled={aiMode}
           >
             <option value="female">여성</option>
             <option value="male">남성</option>
@@ -46,24 +42,14 @@ export default function TtsSettings({ tts, aiMode, onSettingChange }) {
             min="0.5"
             max="2.0"
             step="0.1"
-            className={`mt-1 block w-full border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5 ${
-              aiMode
-                ? "bg-slate-100 text-slate-500 cursor-not-allowed"
-                : "bg-white"
-            }`}
+            className={`mt-1 block w-full border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5 ${"bg-white"}`}
             value={tts.speed}
             onChange={(e) =>
               onSettingChange("speed", parseFloat(e.target.value))
             }
-            disabled={aiMode}
+            // disabled={aiMode}
           />
         </div>
-        {aiMode && (
-          <p className="md:col-span-2 mt-2 text-xs text-slate-500">
-            AI 모드에서는 음성 스타일을 직접 선택할 수 없습니다. AI가 최적의
-            목소리와 속도를 결정합니다.
-          </p>
-        )}
       </div>
     </div>
   );

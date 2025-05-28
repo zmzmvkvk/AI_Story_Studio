@@ -1,14 +1,12 @@
+// server/routes/api.js
 import express from "express";
 import { generateStoryWithGPT } from "./services/gptService.js";
-
 import {
-  improvePromptAPI,
   requestImageGeneration,
   pollGenerationResult,
-} from "./services/leonardoService.js"; // improvePromptAPI 추가
-
-// Firestore 직접 접근이 필요하다면 firebase-admin 설정 및 import 필요
-// import { db } from '../firebaseAdmin.js'; // 예시
+  fetchUserModels, // fetchUserModels도 사용한다면 export 되어 있어야 함
+  // improvePromptAPI, // 이 줄을 제거 (또는 주석 처리)
+} from "./services/leonardoService.js";
 
 const router = express.Router();
 
@@ -16,34 +14,17 @@ const router = express.Router();
 router.post("/generate-ai-story", async (req, res, next) => {
   try {
     const { storyPrompt, productImageUrl, projectSettings } = req.body;
-
     if (!projectSettings) {
       return res
         .status(400)
         .json({ error: "프로젝트 설정(projectSettings) 정보가 필요합니다." });
     }
-    // storyPrompt나 productImageUrl이 둘 다 없는 경우는 gptService에서 처리
-
     const generatedStory = await generateStoryWithGPT({
       storyPrompt,
       productImageUrl,
       projectSettings,
     });
     res.status(200).json({ story: generatedStory });
-  } catch (error) {
-    next(error); // 전역 에러 핸들러로 전달
-  }
-});
-
-router.post("/improve-prompt", async (req, res, next) => {
-  try {
-    const { prompt, instructions } = req.body;
-    if (!prompt) {
-      return res.status(400).json({ error: "개선할 'prompt'가 필요합니다." });
-    }
-
-    const improvedPrompt = await improvePromptAPI(prompt, instructions);
-    res.status(200).json({ improvedPrompt: improvedPrompt });
   } catch (error) {
     next(error);
   }
@@ -53,23 +34,29 @@ router.post("/improve-prompt", async (req, res, next) => {
 router.post("/generate-image", async (req, res, next) => {
   try {
     const {
-      prompt, // 클라이언트에서 제공 (예: Story.jsx에서 생성된 컷의 텍스트)
-      style, // 클라이언트 설정에서 가져온 스타일 문자열 (예: "cartoon")
-      leonardoOptions = {}, // API에 직접 전달할 추가 옵션 (width, height, negative_prompt 등)
+      prompt,
+      projectImageSettings, // 클라이언트의 settings.image 객체 전체
+      enhancePromptOptions = {}, // { enhancePrompt: boolean, promptInstructions: string }
     } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: "요청에 'prompt'가 필요합니다." });
     }
+    if (!projectImageSettings) {
+      return res
+        .status(400)
+        .json({ error: "요청에 'projectImageSettings'가 필요합니다." });
+    }
 
-    const DEFAULT_MAX_ATTEMPTS = parseInt(leonardoOptions.maxAttempts) || 10;
+    const DEFAULT_MAX_ATTEMPTS =
+      parseInt(projectImageSettings.maxAttempts) || 10; // 필요시 클라이언트에서 전달
     const DEFAULT_POLLING_DELAY =
-      parseInt(leonardoOptions.pollingDelay) || 5000; // 5초
+      parseInt(projectImageSettings.pollingDelay) || 5000;
 
     const generationId = await requestImageGeneration({
       prompt,
-      style,
-      leonardoOptions,
+      projectImageSettings,
+      enhancePromptOptions, // 이 옵션을 서비스 함수로 전달
     });
 
     let attempts = 0;
@@ -123,7 +110,17 @@ router.post("/generate-image", async (req, res, next) => {
       });
     }
   } catch (error) {
-    next(error); // 전역 에러 핸들러로 전달
+    next(error);
+  }
+});
+
+// --- Leonardo AI 커스텀 모델 목록 가져오기 라우트 (선택 사항) ---
+router.get("/user-models", async (req, res, next) => {
+  try {
+    const models = await fetchUserModels();
+    res.status(200).json({ models });
+  } catch (error) {
+    next(error);
   }
 });
 
