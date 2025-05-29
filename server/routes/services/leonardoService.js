@@ -21,8 +21,7 @@ const HEADERS = {
 
 export const requestImageGeneration = async ({
   prompt,
-  projectImageSettings, // 클라이언트의 settings.image 객체 전체
-  // enhancePromptOptions는 projectImageSettings 내부에 포함됨 (enhancePrompt, enhancePromptInstructions)
+  projectImageSettings, // 클라이언트의 settings.image 객체 전체 (enhancePrompt 필드 등 포함)
 }) => {
   if (!API_KEY) throw new Error("Leonardo AI API 키가 설정되지 않았습니다.");
   if (!prompt) throw new Error("이미지 생성을 위한 프롬프트가 필요합니다.");
@@ -33,68 +32,50 @@ export const requestImageGeneration = async ({
     width,
     height,
     num_images,
-    guidance_scale, // API 문서에서는 guidance_scale, 스토어에서는 guidanceScale
+    guidanceScale, // 스토어에서는 guidanceScale, API에서는 guidance_scale
     alchemy,
     photoReal,
-    // photoRealStrength,
     promptMagic,
-    // promptMagicVersion,
-    // promptMagicStrength,
     negative_prompt,
     scheduler,
     sd_version,
-    // seed,
-    // tiling,
     enhancePrompt,
     enhancePromptInstructions,
   } = projectImageSettings || {};
 
   const payload = {
     prompt: prompt,
-    height: parseInt(height) || 1024, // 기본값 조정 또는 필수값으로
-    width: parseInt(width) || 1024, // 기본값 조정 또는 필수값으로
+    height: parseInt(height) || 1024,
+    width: parseInt(width) || 1024,
     num_images: parseInt(num_images) || 1,
   };
 
-  if (guidance_scale !== undefined)
-    payload.guidance_scale = parseInt(guidance_scale);
+  // Map frontend 'guidanceScale' to API 'guidance_scale'
+  if (guidanceScale !== undefined) {
+    payload.guidance_scale = parseInt(guidanceScale);
+  }
   if (negative_prompt) payload.negative_prompt = negative_prompt;
   if (scheduler) payload.scheduler = scheduler;
 
-  // 모델 및 스타일 설정
   if (customModelId) {
     payload.modelId = customModelId;
-    // 커스텀 모델 사용 시 sd_version, presetStyle 등은 자동으로 무시되거나, API에서 오류를 반환할 수 있음
   } else {
-    // 커스텀 모델을 사용하지 않을 때만 sd_version과 presetStyle 적용
     if (sd_version) payload.sd_version = sd_version;
     if (stylePreset && stylePreset !== "NONE") {
       payload.presetStyle = stylePreset;
     }
   }
 
-  // Alchemy 관련 옵션 처리 (API 문서의 최신 버전 및 구조 확인 필수!)
-  // Leonardo API는 Alchemy V1, V2(LPM), PhotoReal V2 등 다양한 조합이 있을 수 있습니다.
-  // 여기서는 각 옵션을 독립적으로 보내는 형태로 가정하고, API가 이를 해석한다고 가정합니다.
-  // 실제로는 alchemy: { enabled: true, photoReal: true, ... } 와 같은 중첩 객체일 수 있습니다.
-  if (alchemy !== undefined) payload.alchemy = alchemy; // V1 스타일. V2에서는 photoReal, promptMagic이 주 옵션일 수 있음
+  if (alchemy !== undefined) payload.alchemy = alchemy;
   if (photoReal !== undefined) payload.photoReal = photoReal;
-  // if (photoRealStrength !== undefined && photoReal) payload.photoRealStrength = photoRealStrength;
   if (promptMagic !== undefined) payload.promptMagic = promptMagic;
-  // if (promptMagicVersion && promptMagic) payload.promptMagicVersion = promptMagicVersion;
-  // if (promptMagicStrength && promptMagic) payload.promptMagicStrength = promptMagicStrength;
 
-  // 프롬프트 자동 개선 기능 (API 문서의 /generations 엔드포인트 파라미터 참고)
   if (enhancePrompt) {
     payload.enhancePrompt = true;
     if (enhancePromptInstructions) {
       payload.enhancePromptInstructions = enhancePromptInstructions;
     }
   }
-
-  // 기타 옵션 (seed, tiling 등)
-  // if (seed !== undefined && seed !== null && seed !== '') payload.seed = parseInt(seed);
-  // if (tiling !== undefined) payload.tiling = tiling;
 
   console.log(
     "Leonardo AI 이미지 생성 요청 페이로드 (상세화):",
@@ -141,12 +122,41 @@ export const requestImageGeneration = async ({
   }
 };
 
-// pollGenerationResult 함수는 이전과 동일
 export const pollGenerationResult = async (generationId) => {
-  /* ... 이전과 동일 ... */
+  if (!API_KEY) throw new Error("Leonardo AI API 키가 설정되지 않았습니다.");
+  if (!generationId) throw new Error("generationId가 필요합니다.");
+
+  try {
+    const response = await axios.get(
+      `${LEONARDO_API_BASE_URL}/generations/${generationId}`,
+      { headers: HEADERS }
+    );
+    // generations_by_pk 가 실제 응답 객체 이름일 수 있음 (API 문서 확인 필요)
+    return response.data?.generations_by_pk || response.data;
+  } catch (error) {
+    console.error(
+      `generationId ${generationId} 상태 폴링 중 오류:`,
+      error.response ? error.response.data : error.message
+    );
+    // 폴링 실패는 이미지 생성 실패로 간주하지 않고, null 이나 에러 상태를 포함한 객체 반환 가능
+    return { status: "POLLING_ERROR", error: error.message, generationId };
+  }
 };
 
-// fetchUserModels 함수는 이전과 동일
 export const fetchUserModels = async () => {
-  /* ... 이전과 동일 ... */
+  if (!API_KEY) throw new Error("Leonardo AI API 키가 설정되지 않았습니다.");
+  try {
+    const response = await axios.get(
+      `${LEONARDO_API_BASE_URL}/models?type=USER`, // 예시: 사용자 모델만 가져오기, API 문서 확인 필요
+      { headers: HEADERS }
+    );
+    // API 응답 구조에 따라 `response.data.custom_models` 또는 다른 경로일 수 있음
+    return response.data?.custom_models || response.data?.models || [];
+  } catch (error) {
+    console.error(
+      "Leonardo AI 커스텀 모델 목록 가져오기 오류:",
+      error.response ? error.response.data : error.message
+    );
+    throw new Error("커스텀 모델 로드 실패");
+  }
 };

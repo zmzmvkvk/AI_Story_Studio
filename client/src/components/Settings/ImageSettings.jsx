@@ -1,8 +1,7 @@
 // client/src/components/Settings/ImageSettings.jsx
 import React, { useState, useEffect } from "react";
-import { ImageIcon, RefreshCw, Info, LoaderCircle } from "lucide-react"; // LoaderCircle로 변경
+import { ImageIcon, RefreshCw, Info, LoaderCircle } from "lucide-react";
 
-// ... (aspectRatioOptions, stylePresetOptions, schedulerOptions, sdVersionOptions 정의는 이전과 동일) ...
 const aspectRatioOptions = [
   { value: "9:16", label: "9:16 (세로)", width: 768, height: 1344 },
   { value: "16:9", label: "16:9 (가로)", width: 1344, height: 768 },
@@ -66,7 +65,6 @@ const sdVersionOptions = [
 ];
 
 export default function ImageSettings({ image, onSettingChange }) {
-  // aiMode prop은 여기서는 직접 사용하지 않음
   const [customModels, setCustomModels] = useState([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
 
@@ -101,9 +99,8 @@ export default function ImageSettings({ image, onSettingChange }) {
     onSettingChange("height", option.height);
   };
 
-  // 토글 스위치 값 변경 핸들러
   const handleToggleChange = (key) => {
-    onSettingChange(key, !image[key]); // 해당 키의 boolean 값을 반전시켜 업데이트
+    onSettingChange(key, !image[key]);
   };
 
   return (
@@ -115,9 +112,7 @@ export default function ImageSettings({ image, onSettingChange }) {
         </h2>
       </div>
       <div className="space-y-8">
-        {/* 화면 비율 */}
         <div className="border-b pb-6 mb-6">
-          {/* ... (이전과 동일) ... */}
           <label className="block text-sm font-medium text-slate-600 mb-2">
             화면 비율 (클릭하여 선택)
           </label>
@@ -167,7 +162,6 @@ export default function ImageSettings({ image, onSettingChange }) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
-          {/* 스타일 프리셋 */}
           <div>
             <label
               htmlFor="image-style-preset"
@@ -189,7 +183,6 @@ export default function ImageSettings({ image, onSettingChange }) {
             </select>
           </div>
 
-          {/* 커스텀 모델 */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label
@@ -229,7 +222,6 @@ export default function ImageSettings({ image, onSettingChange }) {
             </select>
           </div>
 
-          {/* SD Version (커스텀 모델 미사용 시) */}
           {!image.customModelId && (
             <div>
               <label
@@ -241,7 +233,7 @@ export default function ImageSettings({ image, onSettingChange }) {
               <select
                 id="sd-version"
                 className="mt-1 block w-full default-input-style"
-                value={image.sd_version || "SDXL_1_0"}
+                value={image.sd_version || "SDXL_1_0"} // Ensure key is 'sd_version'
                 onChange={(e) => onSettingChange("sd_version", e.target.value)}
               >
                 {sdVersionOptions.map((opt) => (
@@ -253,7 +245,6 @@ export default function ImageSettings({ image, onSettingChange }) {
             </div>
           )}
 
-          {/* 이미지 개수 */}
           <div>
             <label
               htmlFor="num_images"
@@ -267,7 +258,7 @@ export default function ImageSettings({ image, onSettingChange }) {
               min="1"
               max="8"
               step="1"
-              value={image.num_images || 1}
+              value={image.num_images || 1} // Ensure key is 'num_images'
               onChange={(e) =>
                 onSettingChange("num_images", parseInt(e.target.value))
               }
@@ -275,7 +266,6 @@ export default function ImageSettings({ image, onSettingChange }) {
             />
           </div>
 
-          {/* Guidance Scale */}
           <div>
             <label
               htmlFor="guidance-scale"
@@ -289,7 +279,7 @@ export default function ImageSettings({ image, onSettingChange }) {
               min="1"
               max="20"
               step="1"
-              value={image.guidanceScale || 7}
+              value={image.guidanceScale || 7} // Key is 'guidanceScale'
               onChange={(e) =>
                 onSettingChange("guidanceScale", parseInt(e.target.value))
               }
@@ -297,7 +287,6 @@ export default function ImageSettings({ image, onSettingChange }) {
             />
           </div>
 
-          {/* Scheduler */}
           <div>
             <label
               htmlFor="scheduler"
@@ -308,7 +297,7 @@ export default function ImageSettings({ image, onSettingChange }) {
             <select
               id="scheduler"
               className="mt-1 block w-full default-input-style"
-              value={image.scheduler || "EULER_DISCRETE"}
+              value={image.scheduler || "EULER_DISCRETE"} // Ensure key is 'scheduler'
               onChange={(e) => onSettingChange("scheduler", e.target.value)}
             >
               {schedulerOptions.map((opt) => (
@@ -320,7 +309,6 @@ export default function ImageSettings({ image, onSettingChange }) {
           </div>
         </div>
 
-        {/* 네거티브 프롬프트 */}
         <div className="border-t pt-6 mt-6">
           <label
             htmlFor="negative-prompt"
@@ -333,19 +321,16 @@ export default function ImageSettings({ image, onSettingChange }) {
             rows="2"
             className="mt-1 block w-full default-input-style resize-none"
             placeholder="예: blurry, ugly, text, watermark, low quality"
-            value={image.negative_prompt || ""}
+            value={image.negative_prompt || ""} // Ensure key is 'negative_prompt'
             onChange={(e) => onSettingChange("negative_prompt", e.target.value)}
           ></textarea>
         </div>
 
-        {/* 고급 옵션 토글 (Alchemy, PhotoReal, PromptMagic, enhancePrompt) */}
         <div className="border-t pt-6 mt-6 space-y-4">
           <h3 className="text-md font-semibold text-slate-700 mb-2">
             고급 생성 옵션
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {" "}
-            {/* md:grid-cols-3 제거 */}
             {[
               {
                 key: "alchemy",
@@ -388,8 +373,8 @@ export default function ImageSettings({ image, onSettingChange }) {
                     type="checkbox"
                     name={opt.key}
                     id={opt.key}
-                    checked={!!image[opt.key]} // 스토어의 boolean 값과 바인딩
-                    onChange={() => handleToggleChange(opt.key)} // 수정된 핸들러 사용
+                    checked={!!image[opt.key]}
+                    onChange={() => handleToggleChange(opt.key)}
                     className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
                   />
                   <label
@@ -400,7 +385,7 @@ export default function ImageSettings({ image, onSettingChange }) {
               </div>
             ))}
           </div>
-          {image.enhancePrompt && ( // enhancePrompt가 true일 때만 지시사항 입력 필드 표시
+          {image.enhancePrompt && (
             <div className="mt-4">
               <label
                 htmlFor="enhancePromptInstructions"

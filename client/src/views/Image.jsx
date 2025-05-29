@@ -1,67 +1,72 @@
 // client/src/views/Image.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { useSettingStore } from "../store/useSettingStore"; //
-import { useStoryStore } from "../store/useStoryStore"; //
+import { useSettingStore } from "../store/useSettingStore";
+import { useStoryStore } from "../store/useStoryStore";
 
 import {
   Loader2,
   CheckCircle,
   AlertCircle,
   Save,
-  Sparkles, // AI 이미지 생성 아이콘
-  Wand2, // 일괄 적용 아이콘으로도 사용 가능
+  Sparkles,
+  Wand2,
   ImageOff,
   UploadCloud,
   RefreshCw,
   Trash2,
-  // Link as LinkIcon, // 사용 안 함
   Replace,
 } from "lucide-react";
 
-// ImageCutCard 컴포넌트는 이전과 거의 동일하게 유지하되,
-// onGenerateImage에 cut.id와 cut.text를 전달하도록 합니다.
+// ImageCutCard 컴포넌트 (이전과 동일하게 유지)
 const ImageCutCard = ({
   cut,
   index,
   aiMode,
-  projectImageSettings, // 프로젝트 이미지 설정을 props로 받음
-  onGenerateImage, // (cutId, prompt, style, leonardoOptions) => Promise<imageUrl>
+  projectImageSettings,
+  onGenerateImage,
   onUploadImage,
   onRemoveImage,
   isProcessingSpecific,
 }) => {
   const [imagePreviewUrl, setImagePreviewUrl] = useState(cut.imageUrl || null);
-  const [isUploading, setIsUploading] = useState(false); // 이 상태는 onUploadImage 내부에서 관리될 수 있음
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     setImagePreviewUrl(cut.imageUrl || null);
   }, [cut.imageUrl]);
 
+  let aspectRatioClass = "aspect-video";
+  if (projectImageSettings && projectImageSettings.aspectRatio) {
+    const ratioString = projectImageSettings.aspectRatio;
+    const [ratioW, ratioH] = ratioString.split(":");
+    if (ratioW && ratioH) {
+      aspectRatioClass = `aspect-[${ratioW}/${ratioH}]`;
+    }
+  } else if (
+    projectImageSettings &&
+    projectImageSettings.width &&
+    projectImageSettings.height
+  ) {
+    aspectRatioClass = `aspect-[${projectImageSettings.width}/${projectImageSettings.height}]`;
+  }
+
   const handleFileChange = async (event) => {
     const file = event.target.files[0];
     if (file) {
       setIsUploading(true);
-      // 임시 미리보기 URL 생성
       const localPreviewUrl = URL.createObjectURL(file);
-      setImagePreviewUrl(localPreviewUrl); // 즉시 미리보기 업데이트
-
+      setImagePreviewUrl(localPreviewUrl);
       try {
-        // onUploadImage는 파일을 스토리지에 업로드하고 최종 URL을 반환하거나,
-        // 여기서는 localCuts 상태를 직접 업데이트 한다고 가정.
-        // 실제 업로드 로직은 handleUploadImageForCut (ImageView 내부)에서 처리.
         await onUploadImage(cut.id || `cut-${index}`, file, localPreviewUrl);
-        // 성공 시 onUploadImage가 localCuts를 업데이트하면 useEffect로 인해 imagePreviewUrl도 최종 URL로 변경될 수 있음
-        // 또는 onUploadImage가 직접 새 URL을 반환하면 여기서 setImagePreviewUrl(newUrl) 호출 가능
       } catch (error) {
         console.error(
           "Error uploading image for cut:",
           cut.id || `cut-${index}`,
           error
         );
-        if (!cut.imageUrl)
-          setImagePreviewUrl(null); // 실패 시 원래 이미지 없으면 미리보기 제거
-        else setImagePreviewUrl(cut.imageUrl); // 실패 시 원래 이미지로 복구
+        if (!cut.imageUrl) setImagePreviewUrl(null);
+        else setImagePreviewUrl(cut.imageUrl);
       } finally {
         setIsUploading(false);
       }
@@ -75,15 +80,7 @@ const ImageCutCard = ({
       alert("이미지를 생성하기 위한 컷 내용(프롬프트)이 없습니다.");
       return;
     }
-    onGenerateImage(
-      cut.id || `cut-${index}`,
-      cut.text, // 프롬프트로 컷 텍스트 사용
-      projectImageSettings?.style || "default", // 프로젝트 설정의 이미지 스타일
-      {
-        // 필요한 경우 여기에 추가 Leonardo AI 옵션 전달
-        // 예: width: projectImageSettings?.width, height: projectImageSettings?.height
-      }
-    );
+    onGenerateImage(cut.id || `cut-${index}`, cut.text, projectImageSettings);
   };
 
   return (
@@ -110,8 +107,9 @@ const ImageCutCard = ({
           </button>
         )}
       </div>
-
-      <div className="aspect-video bg-slate-100 rounded-lg flex items-center justify-center mb-4 overflow-hidden border border-slate-200">
+      <div
+        className={`bg-slate-100 rounded-lg flex items-center justify-center mb-4 overflow-hidden border border-slate-200 ${aspectRatioClass}`}
+      >
         {isProcessingSpecific || isUploading ? (
           <Loader2 size={32} className="text-blue-500 animate-spin" />
         ) : imagePreviewUrl ? (
@@ -127,11 +125,10 @@ const ImageCutCard = ({
           </div>
         )}
       </div>
-
       <div className="flex flex-col sm:flex-row gap-2">
         {aiMode ? (
           <button
-            onClick={handleGenerateClick} // 수정된 핸들러 사용
+            onClick={handleGenerateClick}
             disabled={isProcessingSpecific || isUploading || !cut.text}
             className="flex-1 w-full px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center bg-purple-500 hover:bg-purple-600 text-white transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:opacity-60"
           >
@@ -184,26 +181,24 @@ const ImageCutCard = ({
   );
 };
 
+// ImageView 컴포넌트
 export default function ImageView() {
   const { id: projectIdFromUrl, storyId: storyIdFromUrl } = useParams();
   const currentStoryId = storyIdFromUrl || projectIdFromUrl;
 
-  const { aiMode, settings: projectSettings } = useSettingStore(); // 전체 설정 가져오기
+  const { aiMode, settings: projectSettings } = useSettingStore();
   const { story: loadedStory, fetchStory, saveStoryData } = useStoryStore();
 
   const [localCuts, setLocalCuts] = useState([]);
   const [isComponentLoading, setIsComponentLoading] = useState(true);
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
-  const [processingCutId, setProcessingCutId] = useState(null); // 개별 컷 ID
+  const [processingCutId, setProcessingCutId] = useState(null);
   const [statusMessage, setStatusMessage] = useState({ type: "", message: "" });
 
   useEffect(() => {
     const loadData = async () => {
       setIsComponentLoading(true);
       if (currentStoryId) {
-        // fetchSettings는 DetailLayout 등 상위에서 이미 호출되었을 수 있지만,
-        // 만약 이 뷰에서 직접 설정을 다시 가져와야 한다면 호출
-        // await useSettingStore.getState().fetchSettings(projectIdFromUrl);
         await fetchStory(currentStoryId, projectIdFromUrl);
       }
       setIsComponentLoading(false);
@@ -216,7 +211,7 @@ export default function ImageView() {
       setLocalCuts(
         loadedStory.cutscenes.map((cut, index) => ({
           ...cut,
-          id: cut.id || `cut-${index}-${Date.now()}`, // 고유 ID 보장
+          id: cut.id || `cut-${index}-${Date.now()}`,
           text: cut.text || "",
           imageUrl: cut.imageUrl || null,
         }))
@@ -227,12 +222,15 @@ export default function ImageView() {
   }, [loadedStory]);
 
   const handleGenerateImageForCut = useCallback(
-    async (cutId, prompt, style, leonardoOptions = {}) => {
+    // 'prompt' 파라미터는 여기서는 'originalKoreanCutText'임
+    async (cutId, originalKoreanCutText, projImgSettings) => {
       setProcessingCutId(cutId);
       const cutIndex = localCuts.findIndex((c) => c.id === cutId);
       setStatusMessage({
         type: "info",
-        message: `컷 #${cutIndex + 1} 이미지 생성 중... (스타일: ${style})`,
+        message: `컷 #${cutIndex + 1} 이미지 생성 중... (스타일: ${
+          projImgSettings?.stylePreset || "default"
+        })`,
       });
       try {
         const apiBaseUrl =
@@ -241,13 +239,8 @@ export default function ImageView() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            prompt,
-            style, // projectSettings.image.style 값을 전달
-            leonardoOptions: {
-              // 백엔드에서 받을 수 있는 추가 옵션들
-              ...leonardoOptions,
-              // 예: width: projectSettings.image?.width, height: projectSettings.image?.height
-            },
+            prompt: originalKoreanCutText, // 원본 한국어 텍스트 전달
+            projectImageSettings: projImgSettings,
           }),
         });
 
@@ -259,7 +252,7 @@ export default function ImageView() {
               `이미지 생성 API 오류: ${response.status}`
           );
         }
-        const data = await response.json();
+        const data = await response.json(); // data 객체에 imageUrl, jobDetails 등이 포함됨
 
         setLocalCuts((prevCuts) =>
           prevCuts.map((c) =>
@@ -268,8 +261,62 @@ export default function ImageView() {
         );
         setStatusMessage({
           type: "success",
-          message: `컷 #${cutIndex + 1} 이미지 생성 완료!`,
+          message: data.message || `컷 #${cutIndex + 1} 이미지 생성 완료!`, // 서버 메시지 사용
         });
+
+        // --- 콘솔 로깅 추가 ---
+        console.groupCollapsed(
+          `[AI 이미지 생성 완료] 컷 #${cutIndex + 1} 상세 정보`
+        );
+        console.log("요청 ID (Cut ID):", cutId);
+        console.log(
+          "원본 한국어 프롬프트 (클라이언트):",
+          originalKoreanCutText
+        );
+        console.log(
+          "적용된 프로젝트 이미지 설정 (클라이언트):",
+          projImgSettings
+        );
+
+        if (data.jobDetails) {
+          console.log(
+            "--- Leonardo AI 실제 사용 파라미터 (서버 응답 기반) ---"
+          );
+          console.log("최종 영어 프롬프트 (GPT 생성):", data.jobDetails.prompt);
+          console.log("모델 ID:", data.jobDetails.modelId);
+          console.log("SD 버전:", data.jobDetails.sdVersion);
+          console.log("너비 (Width):", data.jobDetails.width);
+          console.log("높이 (Height):", data.jobDetails.height);
+          console.log("스타일 프리셋:", data.jobDetails.presetStyle);
+          console.log("가이던스 스케일:", data.jobDetails.guidanceScale);
+          console.log("네거티브 프롬프트:", data.jobDetails.negativePrompt);
+          console.log("Alchemy 사용:", data.jobDetails.alchemyMode); // 필드명은 API 응답에 따라 다를 수 있음
+          console.log("PhotoReal 사용:", data.jobDetails.photoReal); // 필드명은 API 응답에 따라 다를 수 있음
+          console.log("Prompt Magic 사용:", data.jobDetails.promptMagic); // 필드명은 API 응답에 따라 다를 수 있음
+          console.log("스케줄러:", data.jobDetails.scheduler);
+          console.log("시드(Seed):", data.jobDetails.seed);
+          console.log("전체 Job 상세 정보 (jobDetails):", data.jobDetails);
+        } else {
+          console.warn(
+            "서버 응답에 'jobDetails'가 없어 Leonardo AI 실제 사용 파라미터를 정확히 로깅할 수 없습니다."
+          );
+        }
+        if (data.gptGeneratedPrompt) {
+          // 서버에서 gptGeneratedPrompt를 명시적으로 보내준다면 로깅
+          console.log(
+            "GPT가 생성한 영어 프롬프트 (서버 직접 전달):",
+            data.gptGeneratedPrompt
+          );
+        }
+        if (data.requestSettings) {
+          // 서버에서 requestSettings를 명시적으로 보내준다면 로깅
+          console.log(
+            "클라이언트가 보낸 이미지 설정 (서버 확인용):",
+            data.requestSettings
+          );
+        }
+        console.groupEnd();
+        // --- 콘솔 로깅 종료 ---
       } catch (error) {
         console.error("Error generating AI image for cut:", cutId, error);
         setStatusMessage({
@@ -281,24 +328,20 @@ export default function ImageView() {
         setTimeout(() => setStatusMessage({ type: "", message: "" }), 3000);
       }
     },
-    [localCuts /*, projectSettings.image */] // projectSettings.image를 의존성에 추가하면 style 변경 시 함수 재생성
+    [localCuts]
   );
 
   const handleUploadImageForCut = useCallback(
     async (cutId, file, localPreviewUrl) => {
-      // setProcessingCutId(cutId); // ImageCutCard에서 이미 처리 중
+      // ... (이전과 동일)
       const cutIndex = localCuts.findIndex((c) => c.id === cutId);
       setStatusMessage({
         type: "info",
         message: `컷 #${cutIndex + 1} 이미지 업로드 중...`,
       });
       try {
-        // TODO: 실제 파일 업로드 로직 (예: Firebase Storage)
-        // const storageUrl = await uploadFileToFirebaseStorage(file, `stories/${currentStoryId}/${cutId}/${file.name}`);
-        // 지금은 임시로 로컬 미리보기 URL을 최종 URL로 사용하고 저장 시 이 URL이 저장됨.
-        // 프로덕션에서는 실제 스토리지 URL로 대체해야 함.
-        await new Promise((resolve) => setTimeout(resolve, 1000)); // 업로드 시뮬레이션
-        const imageUrlToSave = localPreviewUrl; // 실제로는 스토리지 URL
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const imageUrlToSave = localPreviewUrl;
 
         setLocalCuts((prevCuts) =>
           prevCuts.map((c) =>
@@ -315,7 +358,6 @@ export default function ImageView() {
         setStatusMessage({ type: "error", message: "이미지 업로드 실패." });
         throw error;
       } finally {
-        // setProcessingCutId(null); // ImageCutCard에서 처리
         setTimeout(() => setStatusMessage({ type: "", message: "" }), 3000);
       }
     },
@@ -324,10 +366,11 @@ export default function ImageView() {
 
   const handleRemoveImageForCut = useCallback(
     (cutId) => {
+      // ... (이전과 동일)
+      const cutIndex = localCuts.findIndex((c) => c.id === cutId);
       setLocalCuts((prevCuts) =>
         prevCuts.map((c) => (c.id === cutId ? { ...c, imageUrl: null } : c))
       );
-      const cutIndex = localCuts.findIndex((c) => c.id === cutId);
       setStatusMessage({
         type: "info",
         message: `컷 #${cutIndex + 1} 이미지가 제거되었습니다.`,
@@ -338,6 +381,7 @@ export default function ImageView() {
   );
 
   const handleBatchGenerateImages = async () => {
+    // ... (이전과 동일, 단 성공 시 로깅 추가)
     if (!projectSettings || !projectSettings.image) {
       alert("프로젝트 이미지 설정을 먼저 로드해주세요.");
       return;
@@ -351,14 +395,12 @@ export default function ImageView() {
     try {
       for (const cut of localCuts) {
         if (!cut.imageUrl && cut.text) {
-          // 이미지가 없고 텍스트(프롬프트)가 있는 컷에 대해서만
           setProcessingCutId(cut.id);
           const cutIndex = localCuts.findIndex((c) => c.id === cut.id);
           setStatusMessage({
-            // 개별 컷 상태 업데이트
             type: "info",
             message: `컷 #${cutIndex + 1} 이미지 생성 중... (스타일: ${
-              projectSettings.image.style
+              projectSettings.image.stylePreset || "default"
             })`,
           });
 
@@ -369,21 +411,17 @@ export default function ImageView() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               prompt: cut.text,
-              style: projectSettings.image.style,
-              leonardoOptions: {
-                // width: projectSettings.image?.width, height: projectSettings.image?.height
-              },
+              projectImageSettings: projectSettings.image,
             }),
           });
           if (!response.ok) {
             const errorData = await response.json();
             console.warn(
-              `컷 #${cutIndex + 1} 이미지 생성 실패: ${
+              `컷 #${cutIndex + 1} 이미지 생성 실패 (일괄): ${
                 errorData.details || errorData.error
               }`
             );
-            // 일괄 작업 중 하나의 실패가 전체를 중단시키지 않도록 처리 가능
-            continue; // 다음 컷으로
+            continue;
           }
           const data = await response.json();
           setLocalCuts((prev) =>
@@ -392,17 +430,47 @@ export default function ImageView() {
             )
           );
           successCount++;
+
+          // --- 콘솔 로깅 추가 (일괄 처리용) ---
+          console.groupCollapsed(
+            `[AI 이미지 생성 완료 - 일괄] 컷 #${cutIndex + 1} (${
+              cut.id
+            }) 상세 정보`
+          );
+          console.log("원본 한국어 프롬프트 (클라이언트):", cut.text);
+          console.log(
+            "적용된 프로젝트 이미지 설정 (클라이언트):",
+            projectSettings.image
+          );
+          if (data.jobDetails) {
+            console.log(
+              "--- Leonardo AI 실제 사용 파라미터 (서버 응답 기반) ---"
+            );
+            console.log(
+              "최종 영어 프롬프트 (GPT 생성):",
+              data.jobDetails.prompt
+            );
+            console.log("모델 ID:", data.jobDetails.modelId);
+            // ... (개별 생성과 동일한 상세 로깅) ...
+            console.log("전체 Job 상세 정보 (jobDetails):", data.jobDetails);
+          } else {
+            console.warn(
+              "서버 응답에 'jobDetails'가 없어 Leonardo AI 실제 사용 파라미터를 정확히 로깅할 수 없습니다. (일괄)"
+            );
+          }
+          console.groupEnd();
+          // --- 콘솔 로깅 종료 ---
         }
       }
       setStatusMessage({
         type: "success",
-        message: `${successCount}개의 이미지 일괄 생성 완료!`,
+        message: `${successCount}개의 이미지 일괄 생성 완료! (프롬프트 by GPT)`,
       });
     } catch (error) {
       console.error("Error batch generating AI images:", error);
       setStatusMessage({
         type: "error",
-        message: `일부 이미지 생성 실패: ${error.message}`,
+        message: `일부 이미지 생성 실패 (일괄): ${error.message}`,
       });
     } finally {
       setIsBatchProcessing(false);
@@ -412,6 +480,7 @@ export default function ImageView() {
   };
 
   const handleSaveChanges = async () => {
+    // ... (이전과 동일)
     if (!currentStoryId) {
       setStatusMessage({
         type: "error",
@@ -419,19 +488,17 @@ export default function ImageView() {
       });
       return;
     }
-    setIsBatchProcessing(true); // 전체 저장 로딩 상태 사용
+    setIsBatchProcessing(true);
     setStatusMessage({ type: "info", message: "변경사항 저장 중..." });
     try {
       const storyPayload = {
-        ...loadedStory, // 기존 스토리 정보 (id, projectId, storyPrompt 등) 유지
+        ...loadedStory,
         id: currentStoryId,
         projectId: projectIdFromUrl,
         cutscenes: localCuts.map((c) => ({
-          // 저장 시 필요한 필드만 선택하거나, 불필요한 임시 상태 제거
           id: c.id,
           text: c.text,
           imageUrl: c.imageUrl,
-          // 여기에 각 컷에 관련된 다른 필드들도 포함 (예: ttsAudioUrl, motionVideoUrl 등)
         })),
       };
       await saveStoryData(storyPayload);
@@ -452,6 +519,7 @@ export default function ImageView() {
   };
 
   if (isComponentLoading) {
+    // ... (이전과 동일)
     return (
       <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] text-blue-600">
         <Loader2 size={48} className="animate-spin" />
@@ -461,6 +529,7 @@ export default function ImageView() {
   }
 
   return (
+    // ... (이전과 동일한 JSX 구조) ...
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
         <h1 className="text-3xl sm:text-4xl font-bold text-slate-800">
@@ -475,14 +544,14 @@ export default function ImageView() {
               onClick={handleBatchGenerateImages}
               disabled={
                 isBatchProcessing ||
-                localCuts.every((c) => c.imageUrl && c.text)
-              } // 모든 컷에 이미지가 있거나, 텍스트가 없는 컷만 남았을 때
+                localCuts.every((c) => c.imageUrl || !c.text)
+              }
               className="px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center bg-purple-600 hover:bg-purple-700 text-white transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:opacity-60"
             >
-              {isBatchProcessing && processingCutId === null ? ( // 전체 일괄 처리 중일 때
+              {isBatchProcessing && processingCutId === null ? (
                 <Loader2 size={18} className="animate-spin mr-2" />
               ) : (
-                <Wand2 size={16} className="mr-2" /> // Sparkles 대신 Wand2 아이콘 사용
+                <Wand2 size={16} className="mr-2" />
               )}
               {isBatchProcessing && processingCutId === null
                 ? "일괄 생성 중..."
@@ -507,7 +576,7 @@ export default function ImageView() {
       </div>
 
       {statusMessage.message && (
-        <div /* ... 상태 메시지 UI (이전과 동일) ... */
+        <div
           className={`flex items-center p-3.5 rounded-lg mb-6 shadow text-sm font-medium
            ${
              statusMessage.type === "success"
@@ -546,7 +615,7 @@ export default function ImageView() {
               cut={cut}
               index={index}
               aiMode={aiMode}
-              projectImageSettings={projectSettings.image} // 프로젝트 이미지 설정 전달
+              projectImageSettings={projectSettings.image}
               onGenerateImage={handleGenerateImageForCut}
               onUploadImage={handleUploadImageForCut}
               onRemoveImage={handleRemoveImageForCut}
@@ -555,9 +624,7 @@ export default function ImageView() {
           ))}
         </div>
       ) : (
-        <div /* ... 컷 없음 안내 UI (이전과 동일) ... */
-          className="text-center py-16 px-6 bg-white rounded-xl shadow-lg border border-slate-200"
-        >
+        <div className="text-center py-16 px-6 bg-white rounded-xl shadow-lg border border-slate-200">
           <ImageOff size={56} className="mx-auto text-slate-300 mb-4" />
           <p className="text-xl text-slate-500 mb-2">
             스토리 뷰에서 먼저 컷을 작성해주세요.

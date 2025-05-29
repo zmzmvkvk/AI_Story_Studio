@@ -42,7 +42,6 @@ export const generateStoryWithGPT = async ({
 
   const systemMessageContent = `당신은 ${targetLanguage}로 창작 활동을 하는 매우 뛰어난 영상 콘텐츠 시나리오 작가입니다. 당신의 임무는 사용자의 요청과 주어진 설정을 충실히 반영하여, 비디오 제작에 적합하도록 여러 개의 장면(컷 또는 Scene)으로 구성된 흥미로운 스토리를 만드는 것입니다. 각 장면은 명확하게 "컷 #번호:" 형식으로 시작해야 하며, 다른 추가적인 장면 제목(예: Scene #X: Title)은 포함하지 마십시오. 오직 "컷 #번호:" 형식만 사용해야 합니다. ${languageInstructions}`;
 
-  // 플랫폼 설정에서 가져온 길이 설명과 기본 컷 수 사용
   const platformLengthDesc =
     contentsSettings.platformLengthDescription || "지정된 길이의";
   const approximateCuts =
@@ -107,30 +106,31 @@ export const generateStoryWithGPT = async ({
 `;
 
   const finalInstructions = `\n\nIMPORTANT REMINDER: The entire response MUST be in ${targetLanguage} ONLY. Each scene must start EXACTLY with "${
-    storySettings?.language === "ko" ? "컷 #번호:" : "Cut #Number:"
+    storySettings?.language === "ko" ? "컷 #번호:" : "Cut #Number:" // 한국어/영어 컷 구분자 명시
   }", followed by the scene content. No other scene titles or formats. Ensure approximately ${approximateCuts} cuts suitable for a ${platformLengthDesc} video.`;
 
-  console.log("GPT 요청 시스템 메시지:", systemMessageContent);
+  console.log("GPT 스토리 생성 요청 - 시스템 메시지:", systemMessageContent);
   console.log(
-    "GPT 요청 사용자 메시지 (최종 지시 포함):",
+    "GPT 스토리 생성 요청 - 사용자 메시지 (최종 지시 포함):",
     userMessageContent + finalInstructions
   );
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o", // 또는 "gpt-4-turbo", "gpt-3.5-turbo"
+      model: "gpt-4o", // 또는 "gpt-4-turbo" 등 선호 모델
       messages: [
         { role: "system", content: systemMessageContent },
         { role: "user", content: userMessageContent + finalInstructions },
       ],
-      temperature: 0.7,
+      temperature: 0.7, // 창의성 조절 (0.0 ~ 2.0)
     });
 
     let generatedStoryText = completion.choices[0]?.message?.content?.trim();
     if (!generatedStoryText) {
       throw new Error("GPT로부터 유효한 스토리 텍스트를 받지 못했습니다.");
     }
-    // 후처리 (필요시)
+
+    // 후처리: 추가적인 제목이나 마크다운 강조 제거
     if (storySettings?.language === "ko") {
       generatedStoryText = generatedStoryText.replace(
         /\*\*Scene\s*#?\d+\s*:\s*[^(\n|\r)]+\*\*\s*\n?/gi,
@@ -141,6 +141,7 @@ export const generateStoryWithGPT = async ({
         "$1$2"
       );
     } else {
+      // 영어 또는 기타 언어
       generatedStoryText = generatedStoryText.replace(
         /\*\*Scene\s*#?\d+\s*:\s*[^(\n|\r)]+\*\*\s*\n?/gi,
         ""
@@ -150,7 +151,7 @@ export const generateStoryWithGPT = async ({
         "$1$2"
       );
     }
-    generatedStoryText = generatedStoryText.replace(/\n\s*\n/g, "\n\n");
+    generatedStoryText = generatedStoryText.replace(/\n\s*\n/g, "\n\n"); // 연속된 빈 줄 정리
 
     console.log("GPT 생성 스토리 (처리 후):", generatedStoryText);
     return generatedStoryText;
@@ -164,7 +165,93 @@ export const generateStoryWithGPT = async ({
     const errorMessage =
       error.response?.data?.error?.message ||
       error.message ||
-      "알 수 없는 GPT API 오류";
+      "알 수 없는 GPT API 오류 (스토리 생성)";
+    throw new Error(`GPT API 오류: ${errorMessage}`);
+  }
+};
+
+/**
+ * GPT를 사용하여 Leonardo AI 이미지 생성을 위한 상세 영어 프롬프트를 생성합니다.
+ * @param {object} params - 매개변수 객체
+ * @param {string} params.originalCutText - 이미지로 변환할 원본 한국어 컷 내용
+ * @returns {Promise<string>} GPT가 생성한 상세 영어 이미지 프롬프트
+ */
+export const generateImagePromptWithGPT = async ({
+  originalCutText,
+  // projectSettings, // 필요시 전체 프로젝트 설정을 받아 톤앤매너 일관성 유지에 활용 가능
+}) => {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OpenAI API 키가 설정되지 않았습니다.");
+  }
+
+  const masterSystemPrompt = `You are an expert Leonardo AI API prompt engineer.
+Your mission is to take a Korean scene description and transform it into a highly detailed, rich, and visually descriptive prompt in ENGLISH. This English prompt will be used to generate an image with Leonardo AI.
+Focus on creating a prompt that will inspire a visually stunning and accurate image. Use descriptive adjectives and vivid language.
+The final output must be only the English prompt itself, without any other conversational text, greetings, or explanations. Just the prompt.`;
+
+  const userPromptContent = `Here's the Korean scene description:
+"${originalCutText}"
+
+Now, craft the English prompt based on this scene. It should be a single, coherent block of text.
+Consider and incorporate details for the following aspects, if relevant to the scene:
+* **Overall Scene:** What is happening? What's the main subject?
+* **Genre/Tone:** (e.g., fantasy, sci-fi, horror, romantic, humorous, dramatic, peaceful)
+* **Subject Details:**
+    * Number of characters/main subjects.
+    * Appearance: Species, age, gender (if applicable), body type, build, distinguishing features.
+    * Actions & Activities: What are they doing?
+    * Emotions & Expressions: (e.g., happy, sad, angry, surprised, focused)
+    * Clothing/Costume: Style (e.g., modern, futuristic, medieval, casual, formal), specific garments, colors, textures, fabric details.
+    * Hair: Style, color, length.
+* **Setting/Background:**
+    * Location: (e.g., dense forest, futuristic city, cozy room, alien planet, underwater cave)
+    * Time of Day/Atmosphere: (e.g., bright sunny day, moody twilight, dark stormy night, magical dawn)
+    * Specific environmental details: (e.g., types of trees, architectural style, furniture, weather conditions)
+* **Composition & Camera:**
+    * Camera Angle/Viewpoint: (e.g., eye-level, low angle, high angle, close-up, medium shot, wide shot, bird's eye view, dutch angle)
+* **Lighting:** (e.g., cinematic lighting, softbox, volumetric lighting, rim lighting, neon glow, natural sunlight, candlelight, dramatic shadows)
+* **Artistic Style/Rendering:** (e.g., photorealistic, hyperrealistic, cinematic, 3D render, illustration, anime, manga, concept art, oil painting, watercolor, sketch, cel-shaded, pixel art, Artstation trending)
+* **Specific Details (if applicable and visible):** Face shape, eye color, nail style, etc.
+
+Remember, the output should be ONLY the final English prompt.`;
+
+  console.log(
+    "GPT 이미지 프롬프트 생성 요청 - 시스템 메시지:",
+    masterSystemPrompt
+  );
+  console.log(
+    "GPT 이미지 프롬프트 생성 요청 - 사용자 메시지:",
+    userPromptContent
+  );
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o", // 또는 "gpt-4-turbo" 등 선호 모델
+      messages: [
+        { role: "system", content: masterSystemPrompt },
+        { role: "user", content: userPromptContent },
+      ],
+      temperature: 0.7, // 창의성 조절
+    });
+
+    const generatedPrompt = completion.choices[0]?.message?.content?.trim();
+    if (!generatedPrompt) {
+      throw new Error("GPT로부터 유효한 이미지 프롬프트를 받지 못했습니다.");
+    }
+
+    console.log("GPT 생성 이미지 프롬프트 (영어):", generatedPrompt);
+    return generatedPrompt;
+  } catch (error) {
+    console.error(
+      "GPT 이미지 프롬프트 생성 중 오류 발생:",
+      error.response
+        ? JSON.stringify(error.response.data, null, 2)
+        : error.message
+    );
+    const errorMessage =
+      error.response?.data?.error?.message ||
+      error.message ||
+      "알 수 없는 GPT API 오류 (이미지 프롬프트 생성)";
     throw new Error(`GPT API 오류: ${errorMessage}`);
   }
 };
