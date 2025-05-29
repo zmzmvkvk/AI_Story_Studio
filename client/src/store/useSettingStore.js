@@ -9,6 +9,24 @@ const platformGuide = {
   tiktok: { type: "tiktok", lengthDesc: "60초 초과", defaultCuts: 40 },
 };
 
+const defaultImageSettings = {
+  stylePreset: "LEONARDO",
+  customModelId: null,
+  aspectRatio: "9:16",
+  width: 768,
+  height: 1344,
+  num_images: 1,
+  guidance_scale: 7,
+  alchemy: true,
+  photoReal: false,
+  promptMagic: false,
+  negative_prompt: "",
+  scheduler: "EULER_DISCRETE",
+  sd_version: "SDXL_1_0",
+  enhancePrompt: false,
+  enhancePromptInstructions: "",
+};
+
 export const useSettingStore = create((set, get) => ({
   aiMode: true,
   settings: {
@@ -27,27 +45,9 @@ export const useSettingStore = create((set, get) => ({
       },
       storyDirection: "advertisement",
     },
-    image: {
-      stylePreset: "LEONARDO",
-      customModelId: null,
-      aspectRatio: "9:16",
-      width: 768,
-      height: 1344,
-      guidanceScale: 7,
-      num_images: 1,
-      alchemy: true,
-      photoReal: false,
-      promptMagic: false,
-      negative_prompt: "",
-    },
-    video: {
-      resolution: "1080p",
-      fps: 30,
-    },
-    tts: {
-      speaker: "female",
-      speed: 1.0,
-    },
+    image: { ...defaultImageSettings },
+    video: { resolution: "1080p", fps: 30 },
+    tts: { speaker: "female", speed: 1.0 },
   },
   loading: false,
   saving: false,
@@ -57,38 +57,49 @@ export const useSettingStore = create((set, get) => ({
 
   setSetting: (category, key, value) =>
     set((state) => {
-      const newSettings = {
-        ...state.settings,
-        [category]: {
-          ...state.settings[category],
-          [key]: value,
-        },
-      };
-
+      let newCategorySettings = { ...state.settings[category], [key]: value };
       if (category === "contents" && key === "platform") {
         const guide = platformGuide[value] || platformGuide.youtube;
-        newSettings.contents.type = guide.type;
-        newSettings.contents.platformLengthDescription = guide.lengthDesc;
-        newSettings.contents.platformDefaultCuts = guide.defaultCuts;
+        newCategorySettings.type = guide.type;
+        newCategorySettings.platformLengthDescription = guide.lengthDesc;
+        newCategorySettings.platformDefaultCuts = guide.defaultCuts;
       }
-      return { settings: newSettings };
+      return {
+        settings: { ...state.settings, [category]: newCategorySettings },
+      };
     }),
 
-  setSettings: (newSettings) =>
-    set((state) => ({
-      // 전체 설정 객체 업데이트용
-      settings: {
-        ...state.settings, // 기존 스토어의 기본 구조를 유지
-        contents: {
-          ...state.settings.contents,
-          ...(newSettings.contents || {}),
+  _updateSettingsFromFetchedData: (
+    fetchedData // fetchSettings 내부에서만 사용
+  ) =>
+    set((state) => {
+      const fetchedSettings = fetchedData.settings || {};
+      const platform =
+        fetchedSettings.contents?.platform || state.settings.contents.platform;
+      const guide = platformGuide[platform] || platformGuide.youtube;
+
+      return {
+        aiMode:
+          fetchedData.aiMode !== undefined ? fetchedData.aiMode : state.aiMode,
+        settings: {
+          contents: {
+            ...state.settings.contents,
+            ...(fetchedSettings.contents || {}),
+            type: guide.type,
+            platformLengthDescription: guide.lengthDesc,
+            platformDefaultCuts: guide.defaultCuts,
+          },
+          story: { ...state.settings.story, ...(fetchedSettings.story || {}) },
+          image: {
+            ...defaultImageSettings,
+            ...state.settings.image,
+            ...(fetchedSettings.image || {}),
+          },
+          video: { ...state.settings.video, ...(fetchedSettings.video || {}) },
+          tts: { ...state.settings.tts, ...(fetchedSettings.tts || {}) },
         },
-        story: { ...state.settings.story, ...(newSettings.story || {}) },
-        image: { ...state.settings.image, ...(newSettings.image || {}) },
-        video: { ...state.settings.video, ...(newSettings.video || {}) },
-        tts: { ...state.settings.tts, ...(newSettings.tts || {}) },
-      },
-    })),
+      };
+    }),
 
   fetchSettings: async (projectId) => {
     if (!projectId) {
@@ -99,48 +110,13 @@ export const useSettingStore = create((set, get) => ({
     try {
       const snap = await getDoc(doc(db, "settings", projectId));
       if (snap.exists()) {
-        const data = snap.data();
-        const fetchedSettings = data.settings || {};
-
-        // Firestore에서 가져온 platform 값 기준으로 가이드라인 정보 설정
-        const platform =
-          fetchedSettings.contents?.platform ||
-          get().settings.contents.platform;
-        const guide = platformGuide[platform] || platformGuide.youtube;
-
-        set({
-          aiMode: data.aiMode !== undefined ? data.aiMode : get().aiMode,
-          settings: {
-            // 기존 스토어 구조를 유지하면서 값을 병합
-            contents: {
-              ...get().settings.contents, // 기본값
-              ...(fetchedSettings.contents || {}), // DB 값
-              type: guide.type, // 파생값 업데이트
-              platformLengthDescription: guide.lengthDesc,
-              platformDefaultCuts: guide.defaultCuts,
-            },
-            story: {
-              ...get().settings.story,
-              ...(fetchedSettings.story || {}),
-            },
-            image: {
-              ...get().settings.image,
-              ...(fetchedSettings.image || {}),
-            },
-            video: {
-              ...get().settings.video,
-              ...(fetchedSettings.video || {}),
-            },
-            tts: { ...get().settings.tts, ...(fetchedSettings.tts || {}) },
-          },
-        });
+        get()._updateSettingsFromFetchedData(snap.data());
       } else {
-        // 새 프로젝트일 경우, 현재 스토어의 기본값을 사용할 수 있도록 상태 변경 없음
-        // 또는 이 시점에서 기본 설정을 Firestore에 저장할 수도 있습니다.
-        // await get().saveSettings(projectId); // 예: 새 프로젝트 시 기본값 저장
         console.log(
-          `Firestore에 projectId '${projectId}'에 대한 설정이 없습니다. 기본값을 사용합니다.`
+          `Firestore에 projectId '${projectId}'에 대한 설정이 없습니다. 스토어의 현재 (기본)값을 사용합니다.`
         );
+        // 새 프로젝트면, 현재 스토어의 초기값을 사용. 저장 시 이 값이 쓰임.
+        // 또는 여기서 await get().saveSettings(projectId); 호출하여 기본값을 DB에 즉시 저장 가능
       }
     } catch (err) {
       console.error("Error fetching settings:", err);
@@ -158,16 +134,8 @@ export const useSettingStore = create((set, get) => ({
     set({ saving: true, error: null });
     try {
       const { aiMode, settings } = get();
-      // 파생 상태(platformLengthDescription, platformDefaultCuts)는 저장할 필요 없음
-      const {
-        platformLengthDescription,
-        platformDefaultCuts,
-        ...contentsToSave
-      } = settings.contents;
-      const settingsToPersist = {
-        ...settings,
-        contents: contentsToSave,
-      };
+      const { ...contentsToSave } = settings.contents;
+      const settingsToPersist = { ...settings, contents: contentsToSave };
 
       await setDoc(
         doc(db, "settings", projectId),

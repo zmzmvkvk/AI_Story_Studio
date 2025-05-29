@@ -1,7 +1,6 @@
 // client/src/components/Settings/ContentsSettings.jsx
-import React from "react"; // useEffect 제거
+import React from "react";
 import { LayoutGrid } from "lucide-react";
-// import { useSettingStore } from "../../store/useSettingStore"; // 직접 스토어 접근 불필요
 
 export default function ContentsSettings({ contents, onSettingChange }) {
   const platformOptions = [
@@ -9,9 +8,6 @@ export default function ContentsSettings({ contents, onSettingChange }) {
     { value: "instagram", label: "Instagram" },
     { value: "tiktok", label: "TikTok" },
   ];
-
-  // useEffect 로직 제거: 플랫폼 변경에 따른 type, platformLengthDescription, platformDefaultCuts 업데이트는
-  // useSettingStore의 setSetting 액션에서 처리합니다.
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
@@ -31,9 +27,7 @@ export default function ContentsSettings({ contents, onSettingChange }) {
             id="platform"
             className="mt-1 block w-full pl-3 pr-10 py-2.5 text-base border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg shadow-sm bg-white"
             value={contents.platform}
-            onChange={(e) => {
-              onSettingChange("platform", e.target.value); // platform만 변경, 나머지는 스토어에서 파생됨
-            }}
+            onChange={(e) => onSettingChange("platform", e.target.value)}
           >
             {platformOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -47,13 +41,13 @@ export default function ContentsSettings({ contents, onSettingChange }) {
             htmlFor="type"
             className="block text-sm font-medium text-slate-600 mb-1"
           >
-            콘텐츠 유형 (플랫폼에 따라 자동 선택됨)
+            콘텐츠 유형 (자동 선택)
           </label>
           <input
             type="text"
             id="type"
             className="mt-1 block w-full pl-3 pr-10 py-2.5 text-base border-slate-300 bg-slate-100 sm:text-sm rounded-lg shadow-sm cursor-not-allowed"
-            value={contents.type} // 스토어에서 파생된 contents.type을 보여줌
+            value={contents.type} // 스토어의 contents.type을 직접 사용
             readOnly
           />
         </div>

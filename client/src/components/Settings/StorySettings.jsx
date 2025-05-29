@@ -7,11 +7,11 @@ const predefinedCharacters = [
   {
     id: "default",
     name: "기본 (AI 자유 선택)",
-    imageUrl: "/placeholder-character.png",
+    imageUrl: "/gfm_014x.png",
   }, // 기본값
-  { id: "char_gphoman", name: "지포맨", imageUrl: "/gphoman-face.png" }, // 실제 이미지 경로로 수정
-  { id: "char_idk", name: "아이디뭐", imageUrl: "/idk-face.png" },
-  { id: "char_ramis", name: "라미스", imageUrl: "/ramis-face.png" },
+  { id: "char_gphoman", name: "지포맨", imageUrl: "/gfm_014x.png" }, // 실제 이미지 경로로 수정
+  { id: "char_idk", name: "아이디뭐", imageUrl: "/cfx_9zq0.png" },
+  { id: "char_ramis", name: "라미스", imageUrl: "/spy_bx72.png" },
 ];
 
 const storyDirectionOptions = [

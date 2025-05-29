@@ -9,3 +9,11 @@
       "Segoe UI Symbol", "Noto Color Emoji";
   }
 }
+
+/* 커스텀 토글 스위치 스타일 (필요시 추가) */
+.toggle-checkbox:checked {
+  @apply right-0 border-blue-500; /* Tailwind 색상으로 변경 가능 */
+}
+.toggle-checkbox:checked + .toggle-label {
+  @apply bg-blue-500; /* Tailwind 색상으로 변경 가능 */
+}
